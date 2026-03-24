@@ -639,50 +639,56 @@ export default function InventoryPage() {
       )}
 
       {isMenuOpen && (
-        <div className="fixed inset-0 z-[750] bg-black/40 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}>
-          <div className="absolute top-4 right-4 w-56 bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-              <div className="text-[11px] font-bold text-gray-600">메뉴</div>
-              <button className="text-gray-400 font-bold text-lg leading-none px-2" onClick={() => setIsMenuOpen(false)}>×</button>
-            </div>
-            <div className="p-2">
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  if (isUnlocked) signOut();
-                  else setShowAuthModal(true);
-                }}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
-              >
-                {isUnlocked ? "로그아웃" : "로그인"}
-              </button>
-              <button
-                onClick={() => {
-                  setStatusLocation("TOTAL");
-                  setIsMenuOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
-              >
-                재고합계
-              </button>
-              <button
-                onClick={() => {
-                  setStatusLocation("URGENT");
-                  setIsMenuOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
-              >
-                임박 재고
-              </button>
-              <button
-                onClick={() => {
-                  setStatusLocation("HISTORY");
-                  setIsMenuOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
-              >
-                히스토리
-              </button>
+        <div className="fixed inset-0 z-[750] bg-black/20 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}>
+          {/* 메뉴를 햄버거 버튼이 있는 중앙 컨테이너(max-w-md) 영역 안으로 제한 */}
+          <div className="max-w-md mx-auto h-full relative pointer-events-none">
+            <div 
+              className="absolute top-4 right-4 w-56 bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden pointer-events-auto origin-top-right animate-in fade-in zoom-in duration-200" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <div className="text-[11px] font-bold text-gray-600">메뉴</div>
+                <button className="text-gray-400 font-bold text-lg leading-none px-2" onClick={() => setIsMenuOpen(false)}>×</button>
+              </div>
+              <div className="p-2">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    if (isUnlocked) signOut();
+                    else setShowAuthModal(true);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                >
+                  {isUnlocked ? "로그아웃" : "로그인"}
+                </button>
+                <button
+                  onClick={() => {
+                    setStatusLocation("TOTAL");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                >
+                  재고합계
+                </button>
+                <button
+                  onClick={() => {
+                    setStatusLocation("URGENT");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                >
+                  임박 재고
+                </button>
+                <button
+                  onClick={() => {
+                    setStatusLocation("HISTORY");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                >
+                  히스토리
+                </button>
+              </div>
             </div>
           </div>
         </div>
