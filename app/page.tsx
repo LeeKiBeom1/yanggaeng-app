@@ -414,6 +414,21 @@ export default function InventoryPage() {
       <style jsx global>{`
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
+
+        @keyframes menuShow {
+          from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes backdropFade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-menu {
+          animation: menuShow 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-backdrop {
+          animation: backdropFade 0.3s ease-out forwards;
+        }
       `}</style>
 
       <div className="flex items-center justify-between mb-6 max-w-md mx-auto gap-3">
@@ -639,11 +654,10 @@ export default function InventoryPage() {
       )}
 
       {isMenuOpen && (
-        <div className="fixed inset-0 z-[750] bg-black/20 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}>
-          {/* 메뉴를 햄버거 버튼이 있는 중앙 컨테이너(max-w-md) 영역 안으로 제한 */}
+        <div className="fixed inset-0 z-[750] bg-black/20 backdrop-blur-sm animate-backdrop" onClick={() => setIsMenuOpen(false)}>
           <div className="max-w-md mx-auto h-full relative pointer-events-none">
             <div 
-              className="absolute top-4 right-4 w-56 bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden pointer-events-auto origin-top-right animate-in fade-in zoom-in duration-200" 
+              className="absolute top-4 right-4 w-56 bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden pointer-events-auto origin-top-right animate-menu" 
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -657,7 +671,7 @@ export default function InventoryPage() {
                     if (isUnlocked) signOut();
                     else setShowAuthModal(true);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
                 >
                   {isUnlocked ? "로그아웃" : "로그인"}
                 </button>
@@ -666,7 +680,7 @@ export default function InventoryPage() {
                     setStatusLocation("TOTAL");
                     setIsMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
                 >
                   재고합계
                 </button>
@@ -675,7 +689,7 @@ export default function InventoryPage() {
                     setStatusLocation("URGENT");
                     setIsMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
                 >
                   임박 재고
                 </button>
@@ -684,7 +698,7 @@ export default function InventoryPage() {
                     setStatusLocation("HISTORY");
                     setIsMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700"
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
                 >
                   히스토리
                 </button>
