@@ -6,8 +6,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-const ADMIN_ID = "god6332";
-const ADMIN_PASSWORD = "6332";
 
 // 요청에 따라 '백앙금'과 '흑임자' 순서를 변경했습니다.
 const YANGGANG_TYPES = ["팥", "고운앙금", "통팥", "밤", "호두", "견과", "대추", "쌍화", "밀크티", "라즈베리", "곶감", "녹차", "말차", "백앙금", "흑임자", "고구마", "단호박"];
@@ -35,6 +33,7 @@ export default function InventoryPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loginId, setLoginId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   type HistoryEvent =
     | {
@@ -104,7 +103,18 @@ export default function InventoryPage() {
   }
   useEffect(() => {
     fetchInventory();
-    setShowAuthModal(true);
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const data = await res.json();
+        const ok = Boolean(data?.authenticated);
+        setIsUnlocked(ok);
+        setShowAuthModal(!ok);
+      } catch {
+        setIsUnlocked(false);
+        setShowAuthModal(true);
+      }
+    })();
     try {
       const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
       if (raw) {
@@ -179,17 +189,26 @@ export default function InventoryPage() {
       triggerToast("아이디와 비밀번호를 입력해주세요.");
       return;
     }
-    if (loginId !== ADMIN_ID || loginPassword !== ADMIN_PASSWORD) {
+    setIsAuthLoading(true);
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: loginId, password: loginPassword }),
+    });
+    setIsAuthLoading(false);
+    if (!res.ok) {
       triggerToast("로그인 실패: 아이디/비밀번호를 확인해주세요.");
       return;
     }
     setIsUnlocked(true);
     setShowAuthModal(false);
+    setLoginId("");
     setLoginPassword("");
     triggerToast("로그인 성공");
   }
 
   async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
     setIsUnlocked(false);
     setShowAuthModal(true);
     triggerToast("로그아웃 되었습니다.");
@@ -723,7 +742,9 @@ export default function InventoryPage() {
               className="w-full mb-5 p-3 border border-gray-200 rounded-xl font-bold text-sm"
             />
 
-            <button onClick={signIn} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">로그인</button>
+            <button onClick={signIn} disabled={isAuthLoading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold disabled:bg-blue-300">
+              {isAuthLoading ? "로그인 중..." : "로그인"}
+            </button>
           </div>
         </div>
       )}
