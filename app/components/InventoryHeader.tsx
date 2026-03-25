@@ -23,6 +23,7 @@ export default function InventoryHeader({ statusLocation, setStatusLocation, set
               <div className="p-2">
                 <button onClick={() => { setStatusLocation("URGENT"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">임박 재고</button>
                 <button onClick={() => { setStatusLocation("TOTAL"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">재고 합계</button>
+                <button onClick={() => { setStatusLocation("SET"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">세트 재고</button>
                 <button onClick={() => { setStatusLocation("CLOSING"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">마감 재고</button>
                 <button onClick={() => { setStatusLocation("HISTORY"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">히스토리</button>
                 <div className="h-px bg-black/5 my-1" />
