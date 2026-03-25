@@ -102,7 +102,6 @@ export default function 재고관리페이지() {
 
   async function 재고저장() {
     if (!인증확인() || 입력수량 <= 0) return;
-
     if (현재위치 === "URGENT") {
       const 새항목: 임박항목 = { id: crypto.randomUUID(), product_name: 선택품목, quantity: 입력수량, expiry_date: 유통기한 };
       const 다음목록 = [새항목, ...임박재고목록].slice(0, 1000);
@@ -111,7 +110,6 @@ export default function 재고관리페이지() {
       set입력수량(0); set입력창보이기(false);
       return;
     }
-
     const 대상위치: "FLOOR" | "WAREHOUSE" = 현재위치 === "WAREHOUSE" ? "WAREHOUSE" : "FLOOR";
     const { data: 기존재고 } = await supabase.from("inventory").select("*").match({ location: 대상위치, product_name: 선택품목, expiry_date: 유통기한 }).maybeSingle();
     let 에러 = null;
@@ -164,7 +162,7 @@ export default function 재고관리페이지() {
   }
 
   return (
-    <div className="p-4 max-w-5xl mx-auto bg-[#FDFBF7] min-h-screen font-sans text-[#3E2723]">
+    <div className="p-2 sm:p-4 max-w-5xl mx-auto bg-[#FDFBF7] min-h-screen font-sans text-[#3E2723]">
       <style jsx global>{`
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
