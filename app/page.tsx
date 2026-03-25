@@ -17,13 +17,15 @@ export default function 재고관리페이지() {
   type 재고항목 = { id: string; product_name: string; quantity: number; location: "FLOOR" | "WAREHOUSE"; expiry_date: string; };
   type 임박항목 = { id: string; product_name: string; quantity: number; expiry_date: string; };
   type 세트항목 = { id: string; set_name: string; quantity: number; expiry_date: string; color_data: string; };
+  type 공지항목 = { id: string; title: string; content: string; created_at: string; };
 
   const [items, setItems] = useState<재고항목[]>([]);
   const [히스토리목록, set히스토리목록] = useState<any[]>([]);
   const [임박재고목록, set임박재고목록] = useState<임박항목[]>([]);
   const [세트재고목록, set세트재고목록] = useState<세트항목[]>([]);
+  const [공지목록, set공지목록] = useState<공지항목[]>([]);
   
-  const [현재위치, set현재위치] = useState<"FLOOR" | "WAREHOUSE" | "URGENT" | "SET" | "TOTAL" | "HISTORY" | "CLOSING">("FLOOR"); 
+  const [현재위치, set현재위치] = useState<"FLOOR" | "WAREHOUSE" | "URGENT" | "SET" | "TOTAL" | "HISTORY" | "CLOSING" | "NOTICE">("FLOOR"); 
   const [토스트메시지, set토스트메시지] = useState(""); 
   const [메뉴열림, set메뉴열림] = useState(false);
   const [잠금해제됨, set잠금해제됨] = useState(false);
@@ -33,7 +35,7 @@ export default function 재고관리페이지() {
   const [인증중, set인증중] = useState(false);
 
   const [삭제대상, set삭제대상] = useState<any>(null);
-  const [삭제모드, set삭제모드] = useState<"inventory" | "urgent" | "set">("inventory");
+  const [삭제모드, set삭제모드] = useState<"inventory" | "urgent" | "set" | "notice">("inventory");
   const [수정대상, set수정대상] = useState<재고항목 | null>(null); 
   const [수정수량, set수정수량] = useState(0);
   const [이동대상, set이동대상] = useState<재고항목 | null>(null);
@@ -48,6 +50,10 @@ export default function 재고관리페이지() {
   const [입력수량, set입력수량] = useState(0);
   const [유통기한, set유통기한] = useState(new Date().toISOString().split('T')[0]);
   const [세트색상, set세트색상] = useState("");
+
+  const [공지입력보이기, set공지입력보이기] = useState(false);
+  const [공지제목, set공지제목] = useState("");
+  const [공지내용, set공지내용] = useState("");
 
   const [마감대상목록, set마감대상목록] = useState<재고항목[]>([]);
   const [현재마감인덱스, set현재마감인덱스] = useState(0);
@@ -68,6 +74,8 @@ export default function 재고관리페이지() {
       if (urg) set임박재고목록(urg);
       const { data: sets } = await supabase.from("set_inventory").select("*").order("expiry_date", { ascending: true });
       if (sets) set세트재고목록(sets);
+      const { data: notices } = await supabase.from("notices").select("*").order("created_at", { ascending: false });
+      if (notices) set공지목록(notices);
     } catch (e) { console.error(e); }
   }
 
@@ -103,7 +111,7 @@ export default function 재고관리페이지() {
 
   async function 히스토리비우기() {
     await supabase.from("history").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    토스트알림("🧹 히스토리 삭제 완료"); 재고가져오기();
+    토스트알림("🧹 기록 삭제 완료"); 재고가져오기();
   }
 
   async function 로그인() {
@@ -117,7 +125,7 @@ export default function 재고관리페이지() {
   async function 로그아웃() { await fetch("/api/auth/logout", { method: "POST" }); set잠금해제됨(false); set인증창보이기(true); 토스트알림("로그아웃 되었습니다."); }
 
   async function 재고저장() {
-    if (!인증확인() || 입력수량 <= 0) return;
+    if (!인증확인() || 입력수량 < 0) return;
     try {
       if (현재위치 === "URGENT") {
         if (남은일수계산(유통기한) > 14) { 토스트알림("올바르지 않은 유통기한입니다."); return; }
@@ -143,6 +151,12 @@ export default function 재고관리페이지() {
     } catch (e) { console.error(e); }
   }
 
+  async function 공지저장() {
+    if (!인증확인() || !공지제목) return;
+    await supabase.from("notices").insert([{ title: 공지제목, content: 공지내용 }]);
+    토스트알림("📢 공지 등록 완료"); set공지입력보이기(false); set공지제목(""); set공지내용(""); 재고가져오기();
+  }
+
   async function 수정확정() {
     if (!인증확인() || !수정대상) return;
     const 이전 = 수정대상.quantity; const 이후 = 수정수량;
@@ -164,11 +178,9 @@ export default function 재고관리페이지() {
     if (이동수량 >= 이동대상.quantity) await supabase.from("inventory").delete().eq("id", 이동대상.id);
     else await supabase.from("inventory").update({ quantity: 이동대상.quantity - 이동수량 }).eq("id", 이동대상.id);
     
-    // [추가] 창고 -> 홀 이동 시 히스토리 기록
     if (이동대상.location === "WAREHOUSE") {
       await supabase.from("history").insert([{ ts: Date.now(), kind: "MOVE", product_name: 이동대상.product_name, expiry_date: 이동대상.expiry_date, location: "WAREHOUSE", delta: -이동수량 }]);
     }
-    
     set이동대상(null); 토스트알림("🚚 이동 완료"); 재고가져오기();
   }
 
@@ -184,6 +196,7 @@ export default function 재고관리페이지() {
     if (!인증확인() || !삭제대상) return;
     if (삭제모드 === "urgent") { await supabase.from("urgent_inventory").delete().eq("id", 삭제대상.id); }
     else if (삭제모드 === "set") { await supabase.from("set_inventory").delete().eq("id", 삭제대상.id); }
+    else if (삭제모드 === "notice") { await supabase.from("notices").delete().eq("id", 삭제대상.id); }
     else {
       const 대상 = 삭제대상 as 재고항목;
       await supabase.from("inventory").delete().eq("id", 대상.id);
@@ -199,7 +212,7 @@ export default function 재고관리페이지() {
       <div className="p-2 sm:p-4 max-w-5xl mx-auto">
         <InventoryHeader statusLocation={현재위치} setStatusLocation={set현재위치} setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} setShowAuthModal={set인증창보이기} />
         <div className="flex justify-between items-end mb-4 px-1 h-[42px]">
-          {현재위치 !== "TOTAL" && 현재위치 !== "HISTORY" && 현재위치 !== "CLOSING" && (
+          {현재위치 !== "TOTAL" && 현재위치 !== "HISTORY" && 현재위치 !== "CLOSING" && 현재위치 !== "NOTICE" && (
             <div className="flex gap-2 h-full items-center">
               <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목들(현재위치 === "SET" ? ["4구 클래식"] : ["팥 양갱"]); set일괄입고모드(false); set입력창보이기(true); } }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 재고 추가</button>
               {현재위치 === "WAREHOUSE" && (
@@ -207,12 +220,15 @@ export default function 재고관리페이지() {
               )}
             </div>
           )}
+          {현재위치 === "NOTICE" && (
+            <button onClick={() => { if (인증확인()) set공지입력보이기(true); }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 공지 작성</button>
+          )}
           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter leading-none mb-1">
-            {현재위치 === "FLOOR" ? "홀" : 현재위치 === "WAREHOUSE" ? "창고" : 현재위치 === "URGENT" ? "임박" : 현재위치 === "SET" ? "세트" : 현재위치 === "HISTORY" ? "히스토리" : 현재위치 === "CLOSING" ? "마감" : "합계"}
+            {현재위치 === "FLOOR" ? "홀" : 현재위치 === "WAREHOUSE" ? "창고" : 현재위치 === "URGENT" ? "임박" : 현재위치 === "SET" ? "세트" : 현재위치 === "HISTORY" ? "입출고 기록" : 현재위치 === "CLOSING" ? "재고 마감" : 현재위치 === "NOTICE" ? "공지사항" : "합계"}
           </span>
         </div>
         <InventoryContent 
-          statusLocation={현재위치} historyEvents={히스토리목록} clearHistory={히스토리비우기} items={items} urgentItems={임박재고목록} setInventoryItems={세트재고목록} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류}
+          statusLocation={현재위치} historyEvents={히스토리목록} clearHistory={히스토리비우기} items={items} urgentItems={임박재고목록} setInventoryItems={세트재고목록} noticeItems={공지목록} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류}
           getLocationStock={getLocationStock} getDaysUntilExpiry={남은일수계산} URGENT_DAYS={14} ensureAuthenticated={인증확인} setEditTarget={set수정대상} setEditQty={set수정수량} setMoveTarget={set이동대상} setMoveQty={set이동수량} setDeleteMode={set삭제모드} setDeleteTarget={set삭제대상} 
           setShowMoveUrgentModal={set임박이동창보이기} setMoveUrgentTarget={set임박이동대상} fmtDate={(iso:any)=>iso.slice(5).replace("-","/")}
         />
@@ -224,6 +240,7 @@ export default function 재고관리페이지() {
           deleteTarget={삭제대상} setDeleteTarget={set삭제대상} setDeleteMode={set삭제모드} execDelete={삭제실행}
           showMoveUrgentModal={임박이동창보이기} setShowMoveUrgentModal={set임박이동창보이기} moveUrgentTarget={임박이동대상} confirmMoveToUrgent={임박재고이동확정}
           closingItems={마감대상목록} closingIndex={현재마감인덱스} setClosingIndex={set현재마감인덱스} setStatusLocation={set현재위치} triggerToast={토스트알림} refreshData={재고가져오기} 
+          showNoticeInput={공지입력보이기} setShowNoticeInput={set공지입력보이기} noticeTitle={공지제목} setNoticeTitle={set공지제목} noticeContent={공지내용} setNoticeContent={set공지내용} saveNotice={공지저장}
         />
         {토스트메시지 && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{토스트메시지}</div>}
       </div>

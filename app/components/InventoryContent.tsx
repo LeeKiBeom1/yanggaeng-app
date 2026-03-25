@@ -1,12 +1,12 @@
 "use client";
-export default function InventoryContent({ statusLocation, historyEvents, clearHistory, items, urgentItems, setInventoryItems, YANGGANG_TYPES, SET_TYPES, getLocationStock, getDaysUntilExpiry, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget, fmtDate }: any) {
+export default function InventoryContent({ statusLocation, historyEvents, clearHistory, items, urgentItems, setInventoryItems, noticeItems, YANGGANG_TYPES, SET_TYPES, getLocationStock, getDaysUntilExpiry, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget, fmtDate }: any) {
 
   if (statusLocation === "HISTORY") {
     return (
       <div className="w-full space-y-3 mb-12">
         <div className="flex justify-between items-center px-1 mb-2">
-          <h3 className="text-sm font-bold text-[#5D2E2E]">최근 창고 기록</h3>
-          <button onClick={clearHistory} className="text-[10px] font-bold text-[#A68966]">비우기</button>
+          <h3 className="text-sm font-bold text-[#5D2E2E]">최근 입출고 기록</h3>
+          <button onClick={clearHistory} className="text-[10px] font-bold text-[#A68966]">기록 비우기</button>
         </div>
         <div className="bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden divide-y divide-[#F5F0E9]">
           {historyEvents.map((ev: any) => (
@@ -19,6 +19,7 @@ export default function InventoryContent({ statusLocation, historyEvents, clearH
               <div className={`font-bold text-sm ${ev.delta > 0 && ev.kind !== "MOVE" ? "text-[#198754]" : "text-[#DC3545]"}`}>{ev.delta > 0 && ev.kind !== "MOVE" ? "+" : ""}{ev.delta}개</div>
             </div>
           ))}
+          {historyEvents.length === 0 && <div className="py-16 text-center text-sm text-[#A68966]">기록 없음</div>}
         </div>
       </div>
     );
@@ -55,7 +56,22 @@ export default function InventoryContent({ statusLocation, historyEvents, clearH
     );
   }
 
-  // [추가] 세트 재고 렌더링
+  if (statusLocation === "NOTICE") {
+    return (
+      <div className="w-full space-y-4 mb-12">
+        {noticeItems.map((n: any) => (
+          <div key={n.id} className="bg-white rounded-3xl border border-[#EFE9E1] p-6 shadow-sm relative group">
+            <div className="text-[10px] font-bold text-[#A68966] mb-2">{new Date(n.created_at).toLocaleDateString()}</div>
+            <div className="text-lg font-bold text-[#5D2E2E] mb-3">{n.title}</div>
+            <div className="text-sm text-[#3E2723] leading-relaxed whitespace-pre-wrap">{n.content}</div>
+            <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode("notice"); setDeleteTarget(n); } }} className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center text-[#DC3545] opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+          </div>
+        ))}
+        {noticeItems.length === 0 && <div className="py-20 text-center text-sm text-[#A68966] font-medium italic">등록된 공지사항이 없습니다.</div>}
+      </div>
+    );
+  }
+
   const currentTypes = statusLocation === "SET" ? SET_TYPES : YANGGANG_TYPES;
   if (statusLocation === "CLOSING") return null;
 
@@ -91,7 +107,7 @@ export default function InventoryContent({ statusLocation, historyEvents, clearH
                             <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode(statusLocation === "SET" ? "set" : statusLocation === "URGENT" ? "urgent" : "inventory"); setDeleteTarget(item); } }} className="w-6 h-6 bg-[#FFF5F5] border border-[#FFE3E3] text-[#DC3545] rounded font-bold text-sm">×</button>
                           </div>
                         </div>
-                        {item.color_data && <div className="text-[10px] text-[#A68966] font-bold ml-3.5">🎨 {item.color_data}</div>}
+                        {item.color_data && <div className="text-[10px] font-bold ml-3.5" style={{ color: item.color_data === "Red" ? "#DC3545" : item.color_data === "Navy" ? "#001F3F" : "#FF69B4" }}>● {item.color_data}</div>}
                       </div>
                     );
                   })}

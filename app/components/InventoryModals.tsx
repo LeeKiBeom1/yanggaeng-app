@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 export default function InventoryModals(props: any) {
-  const { showInputModal, setShowInputModal, isBatchMode, statusLocation, YANGGANG_TYPES, SET_TYPES, selectedProducts, setSelectedProducts, expiryDate, setExpiryDate, quantity, setQuantity, setMemo, setSetMemo, saveInventory, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData } = props;
+  const { showInputModal, setShowInputModal, isBatchMode, statusLocation, YANGGANG_TYPES, SET_TYPES, selectedProducts, setSelectedProducts, expiryDate, setExpiryDate, quantity, setQuantity, setMemo, setSetMemo, saveInventory, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData, showNoticeInput, setShowNoticeInput, noticeTitle, setNoticeTitle, noticeContent, setNoticeContent, saveNotice } = props;
 
   const currentTypes = statusLocation === "SET" ? SET_TYPES : YANGGANG_TYPES;
 
@@ -28,16 +28,34 @@ export default function InventoryModals(props: any) {
               })}
             </div>
             <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none" />
+            
             {statusLocation === "SET" && (
-              <input type="text" value={setMemo} onChange={(e) => setSetMemo(e.target.value)} placeholder="세트 색상 또는 메모 (선택)" className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none text-sm" />
+              <div className="flex gap-2 mb-4">
+                {["Red", "Navy", "Pink"].map((color) => (
+                  <button key={color} onClick={() => setSetMemo(color)} className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${setMemo === color ? "bg-[#5D2E2E] text-white" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{color}</button>
+                ))}
+              </div>
             )}
+
             <div className="flex gap-2 mb-6"><button onClick={() => setQuantity(quantity + 10)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+10</button><button onClick={() => setQuantity(quantity + 40)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+40</button><button onClick={() => setQuantity(0)} className="flex-1 py-3 bg-[#FFF5F5] border border-[#FFE3E3] rounded-xl text-[11px] font-bold text-[#DC3545]">초기화</button></div>
-            <div className="flex items-center justify-center gap-8 mb-8"><button onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={quantity || ""} onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none" /><button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
+            <div className="flex items-center justify-center gap-8 mb-8"><button onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={quantity === 0 ? "" : quantity} placeholder="0" onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none placeholder:text-[#EFE9E1]" /><button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
             <div className="flex gap-3 text-center"><button onClick={() => setShowInputModal(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button><button onClick={saveInventory} className="flex-[2] py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">저장하기</button></div>
           </div>
         </div>
       )}
 
+      {showNoticeInput && (
+        <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowNoticeInput(false)}>
+          <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">공지사항 작성</h2>
+            <input type="text" value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} placeholder="제목을 입력하세요" className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold bg-white outline-none text-sm" />
+            <textarea value={noticeContent} onChange={(e) => setNoticeContent(e.target.value)} placeholder="내용을 입력하세요" className="w-full mb-8 p-4 border border-[#F5F0E9] rounded-2xl font-bold bg-white outline-none text-sm min-h-[150px] resize-none" />
+            <div className="flex gap-3 text-center"><button onClick={() => setShowNoticeInput(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button><button onClick={saveNotice} className="flex-[2] py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">공지 등록</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* 마감 재고, 로그인, 수정, 이동, 삭제 모달 (기존 로직 유지) */}
       {statusLocation === "CLOSING" && closingItems.length > 0 && (
         <div className="fixed inset-0 bg-white z-[800] flex flex-col p-6 overflow-hidden">
           <div className="max-w-md mx-auto w-full h-full flex flex-col">
@@ -94,10 +112,10 @@ export default function InventoryModals(props: any) {
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => { setDeleteTarget(null); setDeleteMode("inventory"); }}>
+        <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setDeleteTarget(null)}>
           <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-10 text-center border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <p className="font-bold text-lg mb-8 text-[#3E2723]">해당 재고 내역을<br/>삭제할까요?</p>
-            <div className="flex gap-3"><button onClick={() => { setDeleteTarget(null); setDeleteMode("inventory"); }} className="flex-1 py-4 bg-white border border-[#F5F0E9] text-[#A68966] rounded-2xl font-bold">취소</button><button onClick={execDelete} className="flex-1 py-4 bg-[#DC3545] text-white rounded-2xl font-bold active:scale-95 transition-all">삭제</button></div>
+            <p className="font-bold text-lg mb-8 text-[#3E2723]">정말 삭제할까요?</p>
+            <div className="flex gap-3"><button onClick={() => setDeleteTarget(null)} className="flex-1 py-4 bg-white border border-[#F5F0E9] text-[#A68966] rounded-2xl font-bold">취소</button><button onClick={execDelete} className="flex-1 py-4 bg-[#DC3545] text-white rounded-2xl font-bold active:scale-95 transition-all">삭제</button></div>
           </div>
         </div>
       )}

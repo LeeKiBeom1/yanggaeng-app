@@ -21,11 +21,12 @@ export default function InventoryHeader({ statusLocation, setStatusLocation, set
             <div className="absolute top-4 right-4 w-56 bg-[#FDFBF7]/90 backdrop-blur-xl rounded-3xl border border-white/50 shadow-2xl overflow-hidden pointer-events-auto" onClick={(e) => e.stopPropagation()}>
               <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between"><div className="text-[12px] font-bold text-[#5D2E2E]">메뉴</div><button className="text-[#A68966] font-bold text-xl leading-none px-2" onClick={() => setIsMenuOpen(false)}>×</button></div>
               <div className="p-2">
-                <button onClick={() => { setStatusLocation("URGENT"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">임박 재고</button>
                 <button onClick={() => { setStatusLocation("TOTAL"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">재고 합계</button>
+                <button onClick={() => { setStatusLocation("CLOSING"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">재고 마감하기</button>
+                <button onClick={() => { setStatusLocation("URGENT"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">임박 재고</button>
                 <button onClick={() => { setStatusLocation("SET"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">세트 재고</button>
-                <button onClick={() => { setStatusLocation("CLOSING"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">마감 재고</button>
-                <button onClick={() => { setStatusLocation("HISTORY"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">히스토리</button>
+                <button onClick={() => { setStatusLocation("NOTICE"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">공지사항</button>
+                <button onClick={() => { setStatusLocation("HISTORY"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">입출고 기록</button>
                 <div className="h-px bg-black/5 my-1" />
                 <button onClick={() => { setIsMenuOpen(false); if (isUnlocked) signOut(); else setShowAuthModal(true); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#DC3545]">{isUnlocked ? "로그아웃" : "로그인"}</button>
               </div>
