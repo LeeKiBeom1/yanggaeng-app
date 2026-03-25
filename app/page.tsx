@@ -56,15 +56,11 @@ export default function 재고관리페이지() {
     try {
       const { data: inv } = await supabase.from("inventory").select("*").order("expiry_date", { ascending: true });
       if (inv) setItems(inv);
-
       const { data: hist } = await supabase.from("history").select("*").order("ts", { ascending: false }).limit(100);
       if (hist) set히스토리목록(hist);
-
       const { data: urg } = await supabase.from("urgent_inventory").select("*").order("expiry_date", { ascending: true });
       if (urg) set임박재고목록(urg);
-    } catch (e) {
-      console.error("데이터 동기화 실패:", e);
-    }
+    } catch (e) { console.error(e); }
   }
 
   useEffect(() => {
@@ -78,15 +74,25 @@ export default function 재고관리페이지() {
     })();
   }, []);
 
+  // 마감 재고 리스트 세팅
+  useEffect(() => {
+    if (현재위치 === "CLOSING") {
+      const hallItems = [...items].filter(i => i.location === "FLOOR").sort((a, b) => {
+        if (a.expiry_date !== b.expiry_date) return a.expiry_date.localeCompare(b.expiry_date);
+        return YANGGANG_종류.indexOf(a.product_name.replace(" 양갱", "")) - YANGGANG_종류.indexOf(b.product_name.replace(" 양갱", ""));
+      });
+      set마감대상목록(hallItems);
+      set현재마감인덱스(0);
+      if (hallItems.length === 0) { 토스트알림("홀에 재고가 없습니다."); set현재위치("TOTAL"); }
+    }
+  }, [현재위치, items]);
+
   function 토스트알림(msg: string) { set토스트메시지(msg); setTimeout(() => set토스트메시지(""), 2000); }
   function 인증확인() { if (잠금해제됨) return true; set인증창보이기(true); 토스트알림("로그인이 필요합니다."); return false; }
 
   async function 히스토리비우기() {
-    const { error } = await supabase.from("history").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    if (!error) {
-      토스트알림("🧹 히스토리 삭제 완료");
-      재고가져오기();
-    }
+    await supabase.from("history").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    토스트알림("🧹 히스토리 삭제 완료"); 재고가져오기();
   }
 
   async function 로그인() {
@@ -103,16 +109,13 @@ export default function 재고관리페이지() {
     if (!인증확인() || 입력수량 <= 0) return;
     try {
       if (현재위치 === "URGENT") {
-        for (const 품목 of 선택품목들) {
-          await supabase.from("urgent_inventory").insert([{ product_name: 품목, quantity: 입력수량, expiry_date: 유통기한 }]);
-        }
+        for (const 품목 of 선택품목들) { await supabase.from("urgent_inventory").insert([{ product_name: 품목, quantity: 입력수량, expiry_date: 유통기한 }]); }
       } else {
         const 대상위치 = 현재위치 === "WAREHOUSE" ? "WAREHOUSE" : "FLOOR";
         for (const 품목 of 선택품목들) {
           const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: 대상위치, product_name: 품목, expiry_date: 유통기한 }).maybeSingle();
           if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 입력수량 }).eq("id", 기존.id);
           else await supabase.from("inventory").insert([{ product_name: 품목, quantity: 입력수량, location: 대상위치, expiry_date: 유통기한 }]);
-          
           if (대상위치 === "WAREHOUSE") {
             await supabase.from("history").insert([{ ts: Date.now(), kind: "IN", product_name: 품목, expiry_date: 유통기한, location: "WAREHOUSE", delta: 입력수량 }]);
           }
@@ -125,70 +128,56 @@ export default function 재고관리페이지() {
   async function 수정확정() {
     if (!인증확인() || !수정대상) return;
     const 이전 = 수정대상.quantity; const 이후 = 수정수량;
-    try {
-      if (이후 <= 0) {
-        await supabase.from("inventory").delete().eq("id", 수정대상.id);
-        if (수정대상.location === "WAREHOUSE") {
-          await supabase.from("history").insert([{ ts: Date.now(), kind: "OUT", product_name: 수정대상.product_name, expiry_date: 수정대상.expiry_date, location: "WAREHOUSE", delta: -이전 }]);
-        }
-      } else {
-        await supabase.from("inventory").update({ quantity: 이후 }).eq("id", 수정대상.id);
+    if (이후 <= 0) {
+      await supabase.from("inventory").delete().eq("id", 수정대상.id);
+      if (수정대상.location === "WAREHOUSE") {
+        await supabase.from("history").insert([{ ts: Date.now(), kind: "OUT", product_name: 수정대상.product_name, expiry_date: 수정대상.expiry_date, location: "WAREHOUSE", delta: -이전 }]);
       }
-      set수정대상(null); 토스트알림("📝 수정 완료"); 재고가져오기();
-    } catch (e) { console.error(e); }
+    } else { await supabase.from("inventory").update({ quantity: 이후 }).eq("id", 수정대상.id); }
+    set수정대상(null); 토스트알림("📝 수정 완료"); 재고가져오기();
   }
 
   async function 재고이동() {
     if (!인증확인() || !이동대상 || 이동수량 <= 0) return;
-    try {
-      const 새위치 = 이동대상.location === "FLOOR" ? "WAREHOUSE" : "FLOOR";
-      const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: 새위치, product_name: 이동대상.product_name, expiry_date: 이동대상.expiry_date }).maybeSingle();
-      if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 이동수량 }).eq("id", 기존.id);
-      else await supabase.from("inventory").insert([{ product_name: 이동대상.product_name, quantity: 이동수량, location: 새위치, expiry_date: 이동대상.expiry_date }]);
-      
-      if (이동수량 >= 이동대상.quantity) await supabase.from("inventory").delete().eq("id", 이동대상.id);
-      else await supabase.from("inventory").update({ quantity: 이동대상.quantity - 이동수량 }).eq("id", 이동대상.id);
-      
-      set이동대상(null); 토스트알림("🚚 이동 완료"); 재고가져오기();
-    } catch (e) { console.error(e); }
+    const 새위치 = 이동대상.location === "FLOOR" ? "WAREHOUSE" : "FLOOR";
+    const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: 새위치, product_name: 이동대상.product_name, expiry_date: 이동대상.expiry_date }).maybeSingle();
+    if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 이동수량 }).eq("id", 기존.id);
+    else await supabase.from("inventory").insert([{ product_name: 이동대상.product_name, quantity: 이동수량, location: 새위치, expiry_date: 이동대상.expiry_date }]);
+    if (이동수량 >= 이동대상.quantity) await supabase.from("inventory").delete().eq("id", 이동대상.id);
+    else await supabase.from("inventory").update({ quantity: 이동대상.quantity - 이동수량 }).eq("id", 이동대상.id);
+    set이동대상(null); 토스트알림("🚚 이동 완료"); 재고가져오기();
   }
 
   async function 임박재고이동확정() {
     if (!임박이동대상) return;
-    try {
-      await supabase.from("urgent_inventory").insert([{ product_name: 임박이동대상.product_name, quantity: 임박이동대상.quantity, expiry_date: 임박이동대상.expiry_date }]);
-      await supabase.from("inventory").delete().eq("id", 임박이동대상.id);
-      set임박이동창보이기(false); set임박이동대상(null); 토스트알림("⏰ 임박 재고 전송"); 재고가져오기();
-    } catch (e) { console.error(e); }
+    await supabase.from("urgent_inventory").insert([{ product_name: 임박이동대상.product_name, quantity: 임박이동대상.quantity, expiry_date: 임박이동대상.expiry_date }]);
+    await supabase.from("inventory").delete().eq("id", 임박이동대상.id);
+    set임박이동창보이기(false); set임박이동대상(null); 토스트알림("⏰ 임박 재고 전송"); 재고가져오기();
   }
 
   async function 삭제실행() {
     if (!인증확인() || !삭제대상) return;
-    try {
-      if (삭제모드 === "urgent") {
-        await supabase.from("urgent_inventory").delete().eq("id", 삭제대상.id);
-      } else {
-        const 대상 = 삭제대상 as 재고항목;
-        await supabase.from("inventory").delete().eq("id", 대상.id);
-        if (대상.location === "WAREHOUSE") {
-          await supabase.from("history").insert([{ ts: Date.now(), kind: "OUT", product_name: 대상.product_name, expiry_date: 대상.expiry_date, location: "WAREHOUSE", delta: -대상.quantity }]);
-        }
+    if (삭제모드 === "urgent") { await supabase.from("urgent_inventory").delete().eq("id", 삭제대상.id); }
+    else {
+      const 대상 = 삭제대상 as 재고항목;
+      await supabase.from("inventory").delete().eq("id", 대상.id);
+      if (대상.location === "WAREHOUSE") {
+        await supabase.from("history").insert([{ ts: Date.now(), kind: "OUT", product_name: 대상.product_name, expiry_date: 대상.expiry_date, location: "WAREHOUSE", delta: -대상.quantity }]);
       }
-      set삭제대상(null); 토스트알림("🗑️ 삭제 완료"); 재고가져오기();
-    } catch (e) { console.error(e); }
+    }
+    set삭제대상(null); 토스트알림("🗑️ 삭제 완료"); 재고가져오기();
   }
 
   return (
     <div className="w-full min-h-screen bg-[#FDFBF7] font-sans text-[#3E2723] overflow-x-hidden">
       <div className="p-2 sm:p-4 max-w-5xl mx-auto">
         <InventoryHeader statusLocation={현재위치} setStatusLocation={set현재위치} setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} setShowAuthModal={set인증창보이기} />
-        
         <div className="flex justify-between items-end mb-4 px-1">
           {현재위치 !== "TOTAL" && 현재위치 !== "HISTORY" && 현재위치 !== "CLOSING" && (
             <div className="flex gap-2">
-              <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목들(["팥 양갱"]); set일괄입고모드(false); set입력창보이기(true); } }} className="px-5 py-2.5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md">+ 재고 추가</button>
+              <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목들(["팥 양갱"]); set일괄입고모드(false); set입력창보이기(true); } }} className="px-5 py-2.5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 재고 추가</button>
               {현재위치 === "WAREHOUSE" && (
-                <button onClick={() => { if (인증확인()) { set입력수량(40); set선택품목들([]); set일괄입고모드(true); set입력창보이기(true); } }} className="px-5 py-2.5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold">📦 일괄 입고</button>
+                <button onClick={() => { if (인증확인()) { set입력수량(40); set선택품목들([]); set일괄입고모드(true); set입력창보이기(true); } }} className="px-5 py-2.5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>
               )}
             </div>
           )}
@@ -196,13 +185,11 @@ export default function 재고관리페이지() {
             {현재위치 === "FLOOR" ? "홀" : 현재위치 === "WAREHOUSE" ? "창고" : 현재위치 === "URGENT" ? "임박" : 현재위치 === "HISTORY" ? "히스토리" : 현재위치 === "CLOSING" ? "마감" : "합계"}
           </span>
         </div>
-
         <InventoryContent 
           statusLocation={현재위치} historyEvents={히스토리목록} clearHistory={히스토리비우기} triggerToast={토스트알림} items={items} urgentItems={임박재고목록} YANGGANG_TYPES={YANGGANG_종류} 
           getLocationStock={getLocationStock} getDaysUntilExpiry={(d:any)=>Math.ceil((new Date(d).setHours(0,0,0,0)-new Date().setHours(0,0,0,0))/86400000)} URGENT_DAYS={14} ensureAuthenticated={인증확인} setEditTarget={set수정대상} setEditQty={set수정수량} setMoveTarget={set이동대상} setMoveQty={set이동수량} setDeleteMode={set삭제모드} setDeleteTarget={set삭제대상} 
           setShowMoveUrgentModal={set임박이동창보이기} setMoveUrgentTarget={set임박이동대상} fmtDate={(iso:any)=>iso.slice(5).replace("-","/")} fmtLoc={(l:any)=>l==="FLOOR"?"홀":"창고"}
         />
-
         <InventoryModals 
           showInputModal={입력창보이기} setShowInputModal={set입력창보이기} isBatchMode={일괄입고모드} statusLocation={현재위치} YANGGANG_TYPES={YANGGANG_종류} selectedProducts={선택품목들} setSelectedProducts={set선택품목들} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} saveInventory={재고저장}
           showAuthModal={인증창보이기} loginId={아이디} setLoginId={set아이디} loginPassword={비밀번호} setLoginPassword={set비밀번호} isAuthLoading={인증중} signIn={로그인}
@@ -212,12 +199,7 @@ export default function 재고관리페이지() {
           showMoveUrgentModal={임박이동창보이기} setShowMoveUrgentModal={set임박이동창보이기} moveUrgentTarget={임박이동대상} confirmMoveToUrgent={임박재고이동확정}
           closingItems={마감대상목록} closingIndex={현재마감인덱스} setClosingIndex={set현재마감인덱스} setStatusLocation={set현재위치} triggerToast={토스트알림} refreshData={재고가져오기} 
         />
-
-        {토스트메시지 && (
-          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">
-            {토스트메시지}
-          </div>
-        )}
+        {토스트메시지 && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{토스트메시지}</div>}
       </div>
     </div>
   );
