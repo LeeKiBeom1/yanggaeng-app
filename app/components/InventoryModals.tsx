@@ -1,16 +1,60 @@
 "use client";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export default function InventoryModals(props: any) {
-  const { showInputModal, setShowInputModal, statusLocation, YANGGANG_TYPES, selectedProduct, setSelectedProduct, expiryDate, setExpiryDate, quantity, setQuantity, saveInventory, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent } = props;
+  const { showInputModal, setShowInputModal, isBatchMode, statusLocation, YANGGANG_TYPES, selectedProducts, setSelectedProducts, expiryDate, setExpiryDate, quantity, setQuantity, saveInventory, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData, addHistory } = props;
+
+  const handleClosingNext = async (val: number) => {
+    const item = closingItems[closingIndex];
+    const before = item.quantity;
+    const after = val;
+    const delta = after - before;
+
+    if (delta !== 0) {
+      await supabase.from("inventory").update({ quantity: after }).eq("id", item.id);
+      await addHistory({ ts: Date.now(), kind: "EDIT", product_name: item.product_name, expiry_date: item.expiry_date, location: "FLOOR", before, after, delta });
+    }
+
+    if (closingIndex < closingItems.length - 1) {
+      setClosingIndex(closingIndex + 1);
+    } else {
+      triggerToast("✅ 마감 정산 완료");
+      refreshData();
+      setStatusLocation("TOTAL");
+    }
+  };
 
   return (
     <>
-      {/* 재고 추가 */}
+      {/* 재고 추가 및 일괄 입고 */}
       {showInputModal && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowInputModal(false)}>
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">재고 추가</h2>
+            <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">{isBatchMode ? "일괄 입고" : "재고 추가"}</h2>
             <div className="grid grid-cols-4 gap-2 mb-6 max-h-40 overflow-y-auto p-2 border border-[#F5F0E9] rounded-2xl bg-white text-center shadow-inner">
-              {YANGGANG_TYPES.map((p:any) => (<button key={p} onClick={() => setSelectedProduct(`${p} 양갱`)} className={`py-2 text-[10px] rounded-xl border font-bold ${selectedProduct === `${p} 양갱` ? "bg-[#5D2E2E] text-white border-[#5D2E2E]" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{p}</button>))}
+              {YANGGANG_TYPES.map((p:any) => {
+                const pName = `${p} 양갱`;
+                const isSelected = selectedProducts.includes(pName);
+                return (
+                  <button key={p} 
+                    onClick={() => {
+                      if (isBatchMode) {
+                        setSelectedProducts(isSelected ? selectedProducts.filter((x:any) => x !== pName) : [...selectedProducts, pName]);
+                      } else {
+                        setSelectedProducts([pName]);
+                      }
+                    }} 
+                    className={`py-2 text-[10px] rounded-xl border font-bold transition-all ${isSelected ? "bg-[#5D2E2E] text-white border-[#5D2E2E]" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
             </div>
             <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white" />
             <div className="flex gap-2 mb-6"><button onClick={() => setQuantity(quantity + 10)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+10</button><button onClick={() => setQuantity(quantity + 40)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+40</button><button onClick={() => setQuantity(0)} className="flex-1 py-3 bg-[#FFF5F5] border border-[#FFE3E3] rounded-xl text-[11px] font-bold text-[#DC3545]">초기화</button></div>
@@ -19,6 +63,41 @@ export default function InventoryModals(props: any) {
           </div>
         </div>
       )}
+
+      {/* 마감 재고 정산 모드 */}
+      {statusLocation === "CLOSING" && closingItems.length > 0 && (
+        <div className="fixed inset-0 bg-white z-[800] flex flex-col p-6 overflow-hidden">
+          <div className="max-w-md mx-auto w-full h-full flex flex-col">
+            <div className="flex justify-between items-center mb-8">
+              <span className="text-xs font-bold text-[#A68966]">마감 정산 중 ({closingIndex + 1}/{closingItems.length})</span>
+              <button onClick={() => setStatusLocation("FLOOR")} className="text-sm font-bold text-[#DC3545]">중단</button>
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <div className="bg-[#F9F5F0] px-6 py-2 rounded-full text-[#5D2E2E] font-bold text-sm mb-4">{closingItems[closingIndex].product_name}</div>
+              <div className="text-[#A68966] text-xs font-bold mb-8">유통기한: {closingItems[closingIndex].expiry_date}</div>
+              <div className="text-[10px] text-gray-400 mb-2 font-bold uppercase tracking-widest">실제 수량 입력</div>
+              <input 
+                autoFocus 
+                type="number" 
+                key={closingItems[closingIndex].id}
+                defaultValue={closingItems[closingIndex].quantity}
+                onKeyDown={(e) => { if (e.key === "Enter") handleClosingNext(Number(e.currentTarget.value) || 0); }}
+                className="w-full text-center text-7xl font-black bg-transparent outline-none text-[#5D2E2E] mb-12" 
+              />
+              <button 
+                onClick={(e) => {
+                  const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                  handleClosingNext(Number(input.value) || 0);
+                }} 
+                className="w-full py-6 bg-[#5D2E2E] text-white rounded-[32px] text-xl font-bold shadow-xl active:scale-95 transition-all"
+              >
+                확인 후 다음
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 로그인 */}
       {showAuthModal && (
         <div className="fixed inset-0 bg-black/60 z-[760] flex items-center justify-center p-6 backdrop-blur-sm">
@@ -30,7 +109,8 @@ export default function InventoryModals(props: any) {
           </div>
         </div>
       )}
-      {/* 수량 수정 */}
+      
+      {/* 수정/이동/삭제/임박이동 모달은 기존과 동일하되 디자인 일관성 유지 */}
       {editTarget && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setEditTarget(null)}>
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
@@ -40,7 +120,7 @@ export default function InventoryModals(props: any) {
           </div>
         </div>
       )}
-      {/* 임박 재고 이동 확인 */}
+
       {showMoveUrgentModal && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowMoveUrgentModal(false)}>
           <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-10 text-center border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -53,7 +133,7 @@ export default function InventoryModals(props: any) {
           </div>
         </div>
       )}
-      {/* 홀 이동 */}
+
       {moveTarget && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setMoveTarget(null)}>
           <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-8 border shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
@@ -63,7 +143,7 @@ export default function InventoryModals(props: any) {
           </div>
         </div>
       )}
-      {/* 삭제 */}
+
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => { setDeleteTarget(null); setDeleteMode("inventory"); }}>
           <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-10 text-center border shadow-2xl" onClick={(e) => e.stopPropagation()}>

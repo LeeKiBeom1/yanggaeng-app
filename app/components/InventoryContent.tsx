@@ -1,29 +1,27 @@
 "use client";
 
 interface ContentProps {
-  statusLocation: string; historyEvents: any[]; persistHistory: (next: any[]) => void; triggerToast: (msg: string) => void; fmtDate: (iso: string) => string; fmtLoc: (loc: any) => string; items: any[]; urgentItems: any[]; YANGGANG_TYPES: string[]; 
+  statusLocation: string; historyEvents: any[]; clearHistory: () => void; triggerToast: (msg: string) => void; fmtDate: (iso: string) => string; fmtLoc: (loc: any) => string; items: any[]; urgentItems: any[]; YANGGANG_TYPES: string[]; 
   getLocationStock: (name: string, loc: any) => number; getDaysUntilExpiry: (date: string) => number; URGENT_DAYS: number; ensureAuthenticated: () => boolean; 
   setEditTarget: (item: any) => void; setEditQty: (qty: number) => void; setMoveTarget: (item: any) => void; setMoveQty: (qty: number) => void; setDeleteMode: (mode: any) => void; setDeleteTarget: (item: any) => void;
   setShowMoveUrgentModal: (show: boolean) => void; setMoveUrgentTarget: (item: any) => void;
 }
 
 export default function InventoryContent(props: ContentProps) {
-  const { statusLocation, historyEvents, persistHistory, triggerToast, fmtDate, fmtLoc, items, urgentItems, YANGGANG_TYPES, getLocationStock, getDaysUntilExpiry, URGENT_DAYS, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget } = props;
+  const { statusLocation, historyEvents, clearHistory, triggerToast, fmtDate, fmtLoc, items, urgentItems, YANGGANG_TYPES, getLocationStock, getDaysUntilExpiry, URGENT_DAYS, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget } = props;
 
-  // 히스토리 화면 (여백 고정 및 명칭 수정)
   if (statusLocation === "HISTORY") {
     return (
       <div className="w-full space-y-3 mb-12">
         <div className="flex justify-between items-center px-1 mb-2">
           <h3 className="text-sm font-bold text-[#5D2E2E]">최근 활동 기록</h3>
-          <button onClick={() => { persistHistory([]); triggerToast("🧹 히스토리 삭제 완료"); }} className="text-[10px] font-bold text-[#A68966] hover:text-[#5D2E2E]">기록 비우기</button>
+          <button onClick={() => { if (ensureAuthenticated()) clearHistory(); }} className="text-[10px] font-bold text-[#A68966] hover:text-[#5D2E2E]">기록 비우기</button>
         </div>
         <div className="bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden shadow-sm divide-y divide-[#F5F0E9] w-full">
           {historyEvents.map((ev: any) => {
             const isMove = ev.kind === "MOVE";
             const isHall = ev.location === "FLOOR" || ev.from === "FLOOR";
             const delta = ev.delta || 0;
-            // 홀 재고 활동은 무조건 "수정"으로 표시 (증감 +/- 유지)
             const label = isMove ? "이동" : isHall ? "수정" : (delta > 0 ? "입고" : "출고");
 
             return (
@@ -43,7 +41,6 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 재고 합계 모드 (엑셀 스타일 표 - 가로 비율 정확히 배분)
   if (statusLocation === "TOTAL") {
     return (
       <div className="w-full bg-white rounded-2xl border border-[#EFE9E1] shadow-sm overflow-hidden mb-12">
@@ -77,7 +74,8 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 홀/창고/임박 모드
+  if (statusLocation === "CLOSING") return null;
+
   return (
     <div className="w-full space-y-4 mb-12">
       {YANGGANG_TYPES.map((name) => {
