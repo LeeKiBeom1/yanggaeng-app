@@ -53,7 +53,7 @@ export default function InventoryModals(props: any) {
           </div>
         </div>
       )}
-      {/* 홀 이동 (명칭 수정됨) */}
+      {/* 홀 이동 */}
       {moveTarget && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setMoveTarget(null)}>
           <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-8 border shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>

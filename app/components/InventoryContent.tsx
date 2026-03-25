@@ -10,21 +10,29 @@ interface ContentProps {
 export default function InventoryContent(props: ContentProps) {
   const { statusLocation, historyEvents, persistHistory, triggerToast, fmtDate, fmtLoc, items, urgentItems, YANGGANG_TYPES, getLocationStock, getDaysUntilExpiry, URGENT_DAYS, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget } = props;
 
-  // 히스토리 화면
+  // 히스토리 화면 (여백 고정 및 명칭 수정)
   if (statusLocation === "HISTORY") {
     return (
       <div className="w-full space-y-3 mb-12">
-        <div className="flex justify-between items-center px-2 mb-2"><h3 className="text-sm font-bold text-[#5D2E2E]">최근 활동 기록</h3><button onClick={() => { persistHistory([]); triggerToast("🧹 히스토리 삭제 완료"); }} className="text-[10px] font-bold text-[#A68966] hover:text-[#5D2E2E]">기록 비우기</button></div>
-        <div className="bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden shadow-sm divide-y divide-[#F5F0E9]">
+        <div className="flex justify-between items-center px-1 mb-2">
+          <h3 className="text-sm font-bold text-[#5D2E2E]">최근 활동 기록</h3>
+          <button onClick={() => { persistHistory([]); triggerToast("🧹 히스토리 삭제 완료"); }} className="text-[10px] font-bold text-[#A68966] hover:text-[#5D2E2E]">기록 비우기</button>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden shadow-sm divide-y divide-[#F5F0E9] w-full">
           {historyEvents.map((ev: any) => {
             const isMove = ev.kind === "MOVE";
             const isHall = ev.location === "FLOOR" || ev.from === "FLOOR";
             const delta = ev.delta || 0;
+            // 홀 재고 활동은 무조건 "수정"으로 표시 (증감 +/- 유지)
             const label = isMove ? "이동" : isHall ? "수정" : (delta > 0 ? "입고" : "출고");
+
             return (
               <div key={ev.id} className="px-4 py-4 flex items-center gap-4">
                 <div className={`w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center font-bold text-[11px] border ${isMove ? "bg-gray-50 text-gray-400" : delta > 0 ? "bg-[#F0F7F4] text-[#198754]" : "bg-[#FFF5F5] text-[#DC3545]"}`}>{label}</div>
-                <div className="flex-1 min-w-0"><div className="font-bold text-[14px] text-[#3E2723] truncate">{ev.product_name}</div><div className="text-[11px] text-[#A68966] mt-0.5">{fmtDate(ev.expiry_date)} · {isMove ? `${fmtLoc(ev.from)} → ${fmtLoc(ev.to)}` : fmtLoc(ev.location)}</div></div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[14px] text-[#3E2723] truncate">{ev.product_name}</div>
+                  <div className="text-[11px] text-[#A68966] mt-0.5">{fmtDate(ev.expiry_date)} · {isMove ? `${fmtLoc(ev.from)} → ${fmtLoc(ev.to)}` : fmtLoc(ev.location)}</div>
+                </div>
                 <div className={`font-bold text-sm ${isMove ? "text-[#3E2723]" : delta > 0 ? "text-[#198754]" : "text-[#DC3545]"}`}>{isMove ? `${ev.qty}개` : `${delta > 0 ? "+" : ""}${delta}개`}</div>
               </div>
             );
@@ -35,7 +43,7 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 재고 합계 모드 (엑셀 스타일 표)
+  // 재고 합계 모드 (엑셀 스타일 표 - 가로 비율 정확히 배분)
   if (statusLocation === "TOTAL") {
     return (
       <div className="w-full bg-white rounded-2xl border border-[#EFE9E1] shadow-sm overflow-hidden mb-12">
@@ -43,9 +51,9 @@ export default function InventoryContent(props: ContentProps) {
           <thead>
             <tr className="bg-[#F9F5F0] text-[#5D2E2E] text-[12px] font-bold border-b border-[#EFE9E1]">
               <th className="py-3 px-1 border-r border-[#EFE9E1] w-[28%]">품목</th>
-              <th className="py-3 px-1 border-r border-[#EFE9E1] w-[24%]">홀</th>
-              <th className="py-3 px-1 border-r border-[#EFE9E1] w-[24%]">창고</th>
-              <th className="py-3 px-1 w-[24%]">총합</th>
+              <th className="py-3 px-1 border-r border-[#EFE9E1] w-[24%] text-[11px]">홀 재고</th>
+              <th className="py-3 px-1 border-r border-[#EFE9E1] w-[24%] text-[11px]">창고 재고</th>
+              <th className="py-3 px-1 w-[24%] text-[11px]">총 합계</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F5F0E9]">
@@ -57,9 +65,9 @@ export default function InventoryContent(props: ContentProps) {
               return (
                 <tr key={name} className={`text-[13px] ${total === 0 ? "bg-[#FDFBF7]/50" : "bg-white"}`}>
                   <td className="py-3 px-1 border-r border-[#F5F0E9] font-bold text-[#5D2E2E]">{name}</td>
-                  <td className={`py-3 px-1 border-r border-[#F5F0E9] ${floorQty === 0 ? "text-[#D1C4B5]" : "text-[#3E2723]"}`}>{floorQty || "0"}</td>
-                  <td className={`py-3 px-1 border-r border-[#F5F0E9] ${warehouseQty === 0 ? "text-[#D1C4B5]" : "text-[#3E2723]"}`}>{warehouseQty || "0"}</td>
-                  <td className={`py-3 px-1 font-black ${total === 0 ? "text-[#D1C4B5]" : "text-[#5D2E2E]"}`}>{total || "0"}</td>
+                  <td className={`py-3 px-1 border-r border-[#F5F0E9] font-medium ${floorQty === 0 ? "text-[#D1C4B5]" : "text-[#3E2723]"}`}>{floorQty}개</td>
+                  <td className={`py-3 px-1 border-r border-[#F5F0E9] font-medium ${warehouseQty === 0 ? "text-[#D1C4B5]" : "text-[#3E2723]"}`}>{warehouseQty}개</td>
+                  <td className={`py-3 px-1 font-black ${total === 0 ? "text-[#D1C4B5]" : "text-[#5D2E2E]"}`}>{total}개</td>
                 </tr>
               );
             })}
@@ -76,17 +84,8 @@ export default function InventoryContent(props: ContentProps) {
         const productName = `${name} 양갱`;
         let filteredItems = statusLocation === "URGENT" ? urgentItems.filter((i: any) => i.product_name === productName) : items.filter((i: any) => i.product_name === productName && i.location === statusLocation);
         
-        if (statusLocation === "URGENT" && filteredItems.length === 0) {
-           return (
-            <div key={name} className="bg-white rounded-[24px] border border-[#EFE9E1] shadow-sm overflow-hidden opacity-60">
-              <div className="bg-[#F9F5F0] px-4 py-2 border-b border-[#F5F0E9] font-bold text-[13px] text-[#5D2E2E]">{name}</div>
-              <div className="py-4 text-center text-[12px] font-medium text-[#D1C4B5] italic">재고 없음</div>
-            </div>
-           );
-        }
-
         return (
-          <div key={name} className={`bg-white rounded-[24px] border border-[#EFE9E1] shadow-sm overflow-hidden transition-all ${filteredItems.length === 0 ? "opacity-60" : ""}`}>
+          <div key={name} className={`bg-white rounded-[24px] border border-[#EFE9E1] shadow-sm overflow-hidden transition-all w-full ${filteredItems.length === 0 ? "opacity-60" : ""}`}>
             <div className="bg-[#F9F5F0] px-4 py-2 border-b border-[#F5F0E9] font-bold text-[13px] text-[#5D2E2E]">{name}</div>
             <div className="p-2">
               {filteredItems.length > 0 ? (

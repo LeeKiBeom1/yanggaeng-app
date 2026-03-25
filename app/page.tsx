@@ -162,40 +162,42 @@ export default function 재고관리페이지() {
   }
 
   return (
-    <div className="p-2 sm:p-4 max-w-5xl mx-auto bg-[#FDFBF7] min-h-screen font-sans text-[#3E2723]">
-      <style jsx global>{`
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-        input, select, textarea { color: #3E2723; }
-      `}</style>
+    <div className="w-full min-h-screen bg-[#FDFBF7] font-sans text-[#3E2723] overflow-x-hidden">
+      <div className="p-2 sm:p-4 max-w-5xl mx-auto">
+        <style jsx global>{`
+          input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+          input[type=number] { -moz-appearance: textfield; }
+          input, select, textarea { color: #3E2723; }
+        `}</style>
 
-      <InventoryHeader statusLocation={현재위치} setStatusLocation={set현재위치} setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} setShowAuthModal={set인증창보이기} />
+        <InventoryHeader statusLocation={현재위치} setStatusLocation={set현재위치} setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} setShowAuthModal={set인증창보이기} />
 
-      <div className="flex justify-between items-end mb-4 px-1">
-        {현재위치 !== "TOTAL" && 현재위치 !== "HISTORY" && (
-          <button onClick={() => { if (인증확인()) set입력창보이기(true); }} className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold shadow-md transition-all ${잠금해제됨 ? "bg-[#5D2E2E] active:scale-95" : "bg-[#D1C4B5] cursor-not-allowed"}`}>+ 재고 추가</button>
-        )}
-        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-          {현재위치 === "FLOOR" ? "홀" : 현재위치 === "WAREHOUSE" ? "창고" : 현재위치 === "URGENT" ? "임박" : 현재위치 === "HISTORY" ? "히스토리" : "합계"}
-        </span>
+        <div className="flex justify-between items-end mb-4 px-1">
+          {현재위치 !== "TOTAL" && 현재위치 !== "HISTORY" && (
+            <button onClick={() => { if (인증확인()) set입력창보이기(true); }} className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold shadow-md transition-all ${잠금해제됨 ? "bg-[#5D2E2E] active:scale-95" : "bg-[#D1C4B5] cursor-not-allowed"}`}>+ 재고 추가</button>
+          )}
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+            {현재위치 === "FLOOR" ? "홀" : 현재위치 === "WAREHOUSE" ? "창고" : 현재위치 === "URGENT" ? "임박" : 현재위치 === "HISTORY" ? "히스토리" : "합계"}
+          </span>
+        </div>
+
+        <InventoryContent 
+          statusLocation={현재위치} historyEvents={히스토리목록} persistHistory={히스토리저장} triggerToast={토스트알림} fmtDate={날짜포맷} fmtLoc={장소포맷} items={items} urgentItems={임박재고목록} YANGGANG_TYPES={YANGGANG_종류} 
+          getLocationStock={getLocationStock} getDaysUntilExpiry={남은일수계산} URGENT_DAYS={14} ensureAuthenticated={인증확인} setEditTarget={set수정대상} setEditQty={set수정수량} setMoveTarget={set이동대상} setMoveQty={set이동수량} setDeleteMode={set삭제모드} setDeleteTarget={set삭제대상} 
+          setShowMoveUrgentModal={set임박이동창보이기} setMoveUrgentTarget={set임박이동대상}
+        />
+
+        <InventoryModals 
+          showInputModal={입력창보이기} setShowInputModal={set입력창보이기} statusLocation={현재위치} YANGGANG_TYPES={YANGGANG_종류} selectedProduct={선택품목} setSelectedProduct={set선택품목} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} saveInventory={재고저장}
+          showAuthModal={인증창보이기} loginId={아이디} setLoginId={set아이디} loginPassword={비밀번호} setLoginPassword={set비밀번호} isAuthLoading={인증중} signIn={로그인}
+          editTarget={수정대상} setEditTarget={set수정대상} editQty={수정수량} setEditQty={set수정수량} confirmEdit={수정확정}
+          moveTarget={이동대상} setMoveTarget={set이동대상} moveQty={이동수량} setMoveQty={set이동수량} moveInventory={재고이동}
+          deleteTarget={삭제대상} setDeleteTarget={set삭제대상} setDeleteMode={set삭제모드} execDelete={삭제실행}
+          showMoveUrgentModal={임박이동창보이기} setShowMoveUrgentModal={set임박이동창보이기} moveUrgentTarget={임박이동대상} confirmMoveToUrgent={임박재고이동확정}
+        />
+
+        {토스트메시지 && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl animate-bounce z-[800]">{토스트메시지}</div>}
       </div>
-
-      <InventoryContent 
-        statusLocation={현재위치} historyEvents={히스토리목록} persistHistory={히스토리저장} triggerToast={토스트알림} fmtDate={날짜포맷} fmtLoc={장소포맷} items={items} urgentItems={임박재고목록} YANGGANG_TYPES={YANGGANG_종류} 
-        getLocationStock={getLocationStock} getDaysUntilExpiry={남은일수계산} URGENT_DAYS={14} ensureAuthenticated={인증확인} setEditTarget={set수정대상} setEditQty={set수정수량} setMoveTarget={set이동대상} setMoveQty={set이동수량} setDeleteMode={set삭제모드} setDeleteTarget={set삭제대상} 
-        setShowMoveUrgentModal={set임박이동창보이기} setMoveUrgentTarget={set임박이동대상}
-      />
-
-      <InventoryModals 
-        showInputModal={입력창보이기} setShowInputModal={set입력창보이기} statusLocation={현재위치} YANGGANG_TYPES={YANGGANG_종류} selectedProduct={선택품목} setSelectedProduct={set선택품목} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} saveInventory={재고저장}
-        showAuthModal={인증창보이기} loginId={아이디} setLoginId={set아이디} loginPassword={비밀번호} setLoginPassword={set비밀번호} isAuthLoading={인증중} signIn={로그인}
-        editTarget={수정대상} setEditTarget={set수정대상} editQty={수정수량} setEditQty={set수정수량} confirmEdit={수정확정}
-        moveTarget={이동대상} setMoveTarget={set이동대상} moveQty={이동수량} setMoveQty={set이동수량} moveInventory={재고이동}
-        deleteTarget={삭제대상} setDeleteTarget={set삭제대상} setDeleteMode={set삭제모드} execDelete={삭제실행}
-        showMoveUrgentModal={임박이동창보이기} setShowMoveUrgentModal={set임박이동창보이기} moveUrgentTarget={임박이동대상} confirmMoveToUrgent={임박재고이동확정}
-      />
-
-      {토스트메시지 && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl animate-bounce z-[800]">{토스트메시지}</div>}
     </div>
   );
 }
