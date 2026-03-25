@@ -46,7 +46,6 @@ export default function 재고관리페이지() {
   const [입력수량, set입력수량] = useState(0);
   const [유통기한, set유통기한] = useState(new Date().toISOString().split('T')[0]);
 
-  // 재고 합계 계산 함수 (오류 해결을 위해 위로 이동)
   const getLocationStock = (productName: string, location: "FLOOR" | "WAREHOUSE") => 
     items.filter(item => item.product_name === productName && item.location === location)
          .reduce((acc, cur) => acc + cur.quantity, 0);
@@ -103,6 +102,16 @@ export default function 재고관리페이지() {
 
   async function 재고저장() {
     if (!인증확인() || 입력수량 <= 0) return;
+
+    if (현재위치 === "URGENT") {
+      const 새항목: 임박항목 = { id: crypto.randomUUID(), product_name: 선택품목, quantity: 입력수량, expiry_date: 유통기한 };
+      const 다음목록 = [새항목, ...임박재고목록].slice(0, 1000);
+      임박재고저장(다음목록);
+      토스트알림("✅ 임박 재고 저장 완료");
+      set입력수량(0); set입력창보이기(false);
+      return;
+    }
+
     const 대상위치: "FLOOR" | "WAREHOUSE" = 현재위치 === "WAREHOUSE" ? "WAREHOUSE" : "FLOOR";
     const { data: 기존재고 } = await supabase.from("inventory").select("*").match({ location: 대상위치, product_name: 선택품목, expiry_date: 유통기한 }).maybeSingle();
     let 에러 = null;
@@ -133,7 +142,6 @@ export default function 재고관리페이지() {
     set이동대상(null); 토스트알림(`🚚 이동 완료`); 재고가져오기();
   }
 
-  // 임박 재고 이동 함수 (이름 수정하여 오류 해결)
   async function 임박재고이동확정() {
     if (!임박이동대상) return;
     const 항목 = 임박이동대상;

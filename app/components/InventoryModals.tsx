@@ -1,5 +1,4 @@
 "use client";
-
 export default function InventoryModals(props: any) {
   const { showInputModal, setShowInputModal, statusLocation, YANGGANG_TYPES, selectedProduct, setSelectedProduct, expiryDate, setExpiryDate, quantity, setQuantity, saveInventory, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent } = props;
 
@@ -54,13 +53,13 @@ export default function InventoryModals(props: any) {
           </div>
         </div>
       )}
-      {/* 위치 이동 */}
+      {/* 홀 이동 (명칭 수정됨) */}
       {moveTarget && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setMoveTarget(null)}>
           <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-8 border shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold mb-6 text-[#5D2E2E]">재고 위치 이동</h3>
+            <h3 className="font-bold mb-6 text-[#5D2E2E]">홀 이동</h3>
             <div className="flex items-center justify-center gap-6 mb-8 text-center"><button onClick={() => setMoveQty(Math.max(1, moveQty - 1))} className="w-10 h-10 border rounded-full font-bold bg-white text-[#5D2E2E] shadow-sm">-</button><span className="text-3xl font-black text-[#3E2723]">{moveQty}개</span><button onClick={() => setMoveQty(Math.min(moveTarget.quantity, moveQty + 1))} className="w-10 h-10 border rounded-full font-bold bg-white text-[#5D2E2E] shadow-sm">+</button></div>
-            <button onClick={moveInventory} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">이동 확정</button>
+            <button onClick={moveInventory} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">확인</button>
           </div>
         </div>
       )}
