@@ -10,37 +10,38 @@ interface ContentProps {
 export default function InventoryContent(props: ContentProps) {
   const { statusLocation, historyEvents, clearHistory, triggerToast, fmtDate, fmtLoc, items, urgentItems, YANGGANG_TYPES, getLocationStock, getDaysUntilExpiry, URGENT_DAYS, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget } = props;
 
+  // 히스토리 화면
   if (statusLocation === "HISTORY") {
     return (
       <div className="w-full space-y-3 mb-12">
         <div className="flex justify-between items-center px-1 mb-2">
-          <h3 className="text-sm font-bold text-[#5D2E2E]">최근 활동 기록</h3>
+          <h3 className="text-sm font-bold text-[#5D2E2E]">최근 창고 활동 기록</h3>
           <button onClick={() => { if (ensureAuthenticated()) clearHistory(); }} className="text-[10px] font-bold text-[#A68966] hover:text-[#5D2E2E]">기록 비우기</button>
         </div>
         <div className="bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden shadow-sm divide-y divide-[#F5F0E9] w-full">
           {historyEvents.map((ev: any) => {
             const isMove = ev.kind === "MOVE";
-            const isHall = ev.location === "FLOOR" || ev.from === "FLOOR";
             const delta = ev.delta || 0;
-            const label = isMove ? "이동" : isHall ? "수정" : (delta > 0 ? "입고" : "출고");
+            const label = isMove ? "이동" : (delta > 0 ? "입고" : "출고");
 
             return (
               <div key={ev.id} className="px-4 py-4 flex items-center gap-4">
                 <div className={`w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center font-bold text-[11px] border ${isMove ? "bg-gray-50 text-gray-400" : delta > 0 ? "bg-[#F0F7F4] text-[#198754]" : "bg-[#FFF5F5] text-[#DC3545]"}`}>{label}</div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-[14px] text-[#3E2723] truncate">{ev.product_name}</div>
-                  <div className="text-[11px] text-[#A68966] mt-0.5">{fmtDate(ev.expiry_date)} · {isMove ? `${fmtLoc(ev.from)} → ${fmtLoc(ev.to)}` : fmtLoc(ev.location)}</div>
+                  <div className="text-[11px] text-[#A68966] mt-0.5">{fmtDate(ev.expiry_date)} · 창고</div>
                 </div>
                 <div className={`font-bold text-sm ${isMove ? "text-[#3E2723]" : delta > 0 ? "text-[#198754]" : "text-[#DC3545]"}`}>{isMove ? `${ev.qty}개` : `${delta > 0 ? "+" : ""}${delta}개`}</div>
               </div>
             );
           })}
-          {historyEvents.length === 0 && <div className="px-6 py-16 text-center text-sm font-medium text-[#A68966]">기록 없음</div>}
+          {historyEvents.length === 0 && <div className="px-6 py-16 text-center text-sm font-medium text-[#A68966]">창고 기록 없음</div>}
         </div>
       </div>
     );
   }
 
+  // 재고 합계 화면
   if (statusLocation === "TOTAL") {
     return (
       <div className="w-full bg-white rounded-2xl border border-[#EFE9E1] shadow-sm overflow-hidden mb-12">
@@ -76,11 +77,15 @@ export default function InventoryContent(props: ContentProps) {
 
   if (statusLocation === "CLOSING") return null;
 
+  // 리스트 화면 (홀, 창고, 임박 공용)
   return (
     <div className="w-full space-y-4 mb-12">
       {YANGGANG_TYPES.map((name) => {
         const productName = `${name} 양갱`;
-        let filteredItems = statusLocation === "URGENT" ? urgentItems.filter((i: any) => i.product_name === productName) : items.filter((i: any) => i.product_name === productName && i.location === statusLocation);
+        // 임박 모드일 때는 urgentItems에서 필터링, 그 외에는 items에서 필터링
+        let filteredItems = statusLocation === "URGENT" 
+          ? urgentItems.filter((i: any) => i.product_name === productName) 
+          : items.filter((i: any) => i.product_name === productName && i.location === statusLocation);
         
         return (
           <div key={name} className={`bg-white rounded-[24px] border border-[#EFE9E1] shadow-sm overflow-hidden transition-all w-full ${filteredItems.length === 0 ? "opacity-60" : ""}`}>
