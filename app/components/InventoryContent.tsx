@@ -31,7 +31,7 @@ export default function InventoryContent(props: ContentProps) {
     setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget
   } = props;
 
-  // 1. 히스토리 디자인 (프리미엄 스타일)
+  // 히스토리 화면
   if (statusLocation === "HISTORY") {
     return (
       <div className="space-y-3 mb-12">
@@ -79,88 +79,94 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 2. 재고 목록 및 합계 (카드 리스트 스타일)
+  // 재고 목록 및 합계 화면
   return (
     <div className="space-y-4 mb-12 px-1">
       {YANGGANG_TYPES.map((name) => {
         const productName = `${name} 양갱`;
         
-        // 데이터 필터링 로직 (기능 유지)
+        // 1. 재고 합계 모드
         if (statusLocation === "TOTAL") {
           const floorQty = getLocationStock(productName, "FLOOR");
           const warehouseQty = getLocationStock(productName, "WAREHOUSE");
           const total = floorQty + warehouseQty;
-          if (total === 0) return null; // 합계가 0이면 표시 안 함 (깔끔하게)
 
           return (
-            <div key={name} className="bg-white rounded-3xl p-5 border border-[#EFE9E1] shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#F9F5F0] rounded-2xl flex items-center justify-center text-[#5D2E2E] font-bold text-xs shrink-0 border border-[#F0E6D9]">
-                {name[0]}
-              </div>
+            <div key={name} className={`bg-white rounded-3xl p-5 border shadow-sm flex items-center gap-4 transition-all ${total === 0 ? "opacity-60 border-[#F5F0E9]" : "border-[#EFE9E1]"}`}>
               <div className="flex-1">
-                <div className="font-bold text-[15px] text-[#3E2723]">{name} 양갱</div>
+                <div className={`font-bold text-[15px] ${total === 0 ? "text-[#A68966]" : "text-[#3E2723]"}`}>{name} 양갱</div>
                 <div className="flex gap-3 mt-1">
-                   <span className="text-[11px] font-medium text-[#A68966]">홀: <span className="text-[#3E2723]">{floorQty}</span></span>
-                   <span className="text-[11px] font-medium text-[#A68966]">창고: <span className="text-[#3E2723]">{warehouseQty}</span></span>
+                   <span className="text-[11px] font-medium text-[#A68966]">홀: <span className={total === 0 ? "text-[#A68966]" : "text-[#3E2723]"}>{floorQty}</span></span>
+                   <span className="text-[11px] font-medium text-[#A68966]">창고: <span className={total === 0 ? "text-[#A68966]" : "text-[#3E2723]"}>{warehouseQty}</span></span>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[10px] font-bold text-[#A68966] uppercase tracking-wider mb-1">Total</div>
-                <div className="text-xl font-black text-[#5D2E2E]">{total}</div>
+                <div className="text-[10px] font-bold text-[#A68966] uppercase tracking-wider mb-1">총합</div>
+                <div className={`text-xl font-black ${total === 0 ? "text-[#D1C4B5]" : "text-[#5D2E2E]"}`}>
+                  {total === 0 ? "0" : total}
+                </div>
               </div>
             </div>
           );
         }
 
+        // 2. 홀/창고/임박 모드
         let filteredItems = statusLocation === "URGENT" 
           ? urgentItems.filter((i) => i.product_name === productName) 
           : items.filter((i) => i.product_name === productName && i.location === statusLocation);
 
-        if (filteredItems.length === 0) return null;
+        // 임박 양갱 모드에서만 재고 없으면 숨김
+        if (statusLocation === "URGENT" && filteredItems.length === 0) return null;
+
         filteredItems = filteredItems.slice().sort((a, b) => String(a.expiry_date).localeCompare(String(b.expiry_date)));
 
         return (
-          <div key={name} className="bg-white rounded-3xl border border-[#EFE9E1] shadow-sm overflow-hidden">
+          <div key={name} className={`bg-white rounded-3xl border shadow-sm overflow-hidden transition-all ${filteredItems.length === 0 ? "opacity-60 border-[#F5F0E9]" : "border-[#EFE9E1]"}`}>
             <div className="px-5 py-3 bg-[#F9F5F0]/50 border-b border-[#F5F0E9] flex justify-between items-center">
-              <span className="font-bold text-[13px] text-[#5D2E2E]">{name} 양갱</span>
+              <span className={`font-bold text-[13px] ${filteredItems.length === 0 ? "text-[#A68966]" : "text-[#5D2E2E]"}`}>{name} 양갱</span>
               <span className="text-[10px] font-bold text-[#A68966] bg-white px-2 py-0.5 rounded-full border border-[#EFE9E1]">
-                {filteredItems.length} Batch
+                {filteredItems.length}건
               </span>
             </div>
             <div className="p-3 space-y-2">
-              {filteredItems.map((item) => {
-                const daysLeft = getDaysUntilExpiry(item.expiry_date);
-                const isUrgent = daysLeft <= URGENT_DAYS;
-                const isDanger = daysLeft <= 1;
+              {filteredItems.length > 0 ? (
+                filteredItems.map((item) => {
+                  const daysLeft = getDaysUntilExpiry(item.expiry_date);
+                  const isUrgent = daysLeft <= URGENT_DAYS;
+                  const isDanger = daysLeft <= 1;
 
-                return (
-                  <div key={item.id} className="flex items-center justify-between bg-[#FDFBF7] border border-[#F5F0E9] rounded-2xl px-4 py-3 group">
-                    <div 
-                      onClick={() => {
-                        if (statusLocation !== "URGENT") {
-                          if (!ensureAuthenticated()) return;
-                          setEditTarget(item); setEditQty(item.quantity);
-                        }
-                      }}
-                      className={`flex-1 flex items-center gap-3 ${statusLocation !== "URGENT" ? "cursor-pointer" : ""}`}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${isDanger ? "bg-red-500" : isUrgent ? "bg-orange-400" : "bg-green-400"}`} />
-                      <div className="font-bold text-[13px] text-[#3E2723]">
-                        {item.expiry_date.slice(5).replace("-", "/")} 
-                        <span className="mx-2 text-[#EFE9E1]">|</span>
-                        <span className={isDanger ? "text-red-600" : "text-[#5D2E2E]"}>{item.quantity}개</span>
+                  return (
+                    <div key={item.id} className="flex items-center justify-between bg-[#FDFBF7] border border-[#F5F0E9] rounded-2xl px-4 py-3 group">
+                      <div 
+                        onClick={() => {
+                          if (statusLocation !== "URGENT") {
+                            if (!ensureAuthenticated()) return;
+                            setEditTarget(item); setEditQty(item.quantity);
+                          }
+                        }}
+                        className={`flex-1 flex items-center gap-3 ${statusLocation !== "URGENT" ? "cursor-pointer" : ""}`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${isDanger ? "bg-red-500" : isUrgent ? "bg-orange-400" : "bg-green-400"}`} />
+                        <div className="font-bold text-[13px] text-[#3E2723]">
+                          {item.expiry_date.slice(5).replace("-", "/")} 
+                          <span className="mx-2 text-[#EFE9E1]">|</span>
+                          <span className={isDanger ? "text-red-600" : "text-[#5D2E2E]"}>{item.quantity}개</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {statusLocation !== "URGENT" && (
+                          <button onClick={() => { if (!ensureAuthenticated()) return; setMoveTarget(item); setMoveQty(item.quantity); }} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-[#EFE9E1] text-[#A68966] transition-colors">🚚</button>
+                        )}
+                        <button onClick={() => { if (!ensureAuthenticated()) return; setDeleteMode(statusLocation === "URGENT" ? "urgent" : "inventory"); setDeleteTarget(item); }} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-[#FFE3E3] text-[#DC3545] transition-colors text-lg">×</button>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-1">
-                      {statusLocation !== "URGENT" && (
-                        <button onClick={() => { if (!ensureAuthenticated()) return; setMoveTarget(item); setMoveQty(item.quantity); }} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-[#EFE9E1] text-[#A68966] transition-colors">🚚</button>
-                      )}
-                      <button onClick={() => { if (!ensureAuthenticated()) return; setDeleteMode(statusLocation === "URGENT" ? "urgent" : "inventory"); setDeleteTarget(item); }} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-[#FFE3E3] text-[#DC3545] transition-colors text-lg">×</button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <div className="py-4 text-center text-[12px] font-medium text-[#D1C4B5] italic">
+                  재고 없음
+                </div>
+              )}
             </div>
           </div>
         );
