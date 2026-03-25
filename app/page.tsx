@@ -413,10 +413,11 @@ export default function InventoryPage() {
   const URGENT_DAYS = 14;
 
   return (
-    <div className="p-4 max-w-5xl mx-auto bg-[#F8F9FA] min-h-screen font-sans text-[#333]">
+    <div className="p-4 max-w-5xl mx-auto bg-[#FDFBF7] min-h-screen font-sans text-[#3E2723]">
       <style jsx global>{`
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
+        input, select, textarea { color: #3E2723; }
 
         @keyframes menuShow {
           from { opacity: 0; transform: scale(0.95) translateY(-10px); }

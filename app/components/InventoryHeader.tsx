@@ -38,14 +38,14 @@ export default function InventoryHeader({
         }
       `}</style>
 
-      <div className="flex items-center justify-between mb-6 max-w-md mx-auto gap-3">
-        <div className="flex flex-1 gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+      <div className="flex items-center justify-between mb-8 max-w-md mx-auto gap-3">
+        <div className="flex flex-1 gap-1 bg-white p-1.5 rounded-2xl border border-[#EFE9E1] shadow-sm">
           {["FLOOR", "WAREHOUSE"].map((loc) => (
             <button
               key={loc}
               onClick={() => setStatusLocation(loc)}
-              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                statusLocation === loc ? "bg-[#333] text-white" : "text-gray-400 hover:bg-gray-50"
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                statusLocation === loc ? "bg-[#5D2E2E] text-white shadow-md" : "text-[#A68966] hover:bg-[#FDFBF7]"
               }`}
             >
               {loc === "FLOOR" ? "홀" : "창고"}
@@ -54,24 +54,23 @@ export default function InventoryHeader({
         </div>
         <button
           onClick={() => setIsMenuOpen(true)}
-          className="w-10 h-10 bg-white rounded-xl border border-gray-200 flex flex-col items-center justify-center gap-1 active:scale-95 shadow-sm"
+          className="w-14 h-14 bg-white rounded-2xl border border-[#EFE9E1] flex flex-col items-center justify-center gap-1.5 active:scale-95 shadow-sm"
         >
-          <div className="w-5 h-0.5 bg-[#333]"></div>
-          <div className="w-5 h-0.5 bg-[#333]"></div>
-          <div className="w-5 h-0.5 bg-[#333]"></div>
+          <div className="w-6 h-[2.5px] bg-[#3E2723] rounded-full"></div>
+          <div className="w-6 h-[2.5px] bg-[#3E2723] rounded-full"></div>
         </button>
       </div>
 
       {isMenuOpen && (
-        <div className="fixed inset-0 z-[750] bg-black/20 backdrop-blur-sm animate-backdrop" onClick={() => setIsMenuOpen(false)}>
+        <div className="fixed inset-0 z-[750] bg-black/30 backdrop-blur-md animate-backdrop" onClick={() => setIsMenuOpen(false)}>
           <div className="max-w-md mx-auto h-full relative pointer-events-none">
             <div 
-              className="absolute top-4 right-4 w-56 bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden pointer-events-auto origin-top-right animate-menu" 
+              className="absolute top-4 right-4 w-56 bg-[#FDFBF7]/80 backdrop-blur-xl rounded-3xl border border-white/50 shadow-2xl overflow-hidden pointer-events-auto origin-top-right animate-menu" 
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <div className="text-[11px] font-bold text-gray-600">메뉴</div>
-                <button className="text-gray-400 font-bold text-lg leading-none px-2" onClick={() => setIsMenuOpen(false)}>×</button>
+              <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
+                <div className="text-[12px] font-bold text-[#5D2E2E]">메뉴</div>
+                <button className="text-[#A68966] font-bold text-xl leading-none px-2" onClick={() => setIsMenuOpen(false)}>×</button>
               </div>
               <div className="p-2">
                 <button
@@ -80,25 +79,25 @@ export default function InventoryHeader({
                     if (isUnlocked) signOut();
                     else setShowAuthModal(true);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
+                  className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723] transition-colors"
                 >
                   {isUnlocked ? "로그아웃" : "로그인"}
                 </button>
                 <button
                   onClick={() => { setStatusLocation("TOTAL"); setIsMenuOpen(false); }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
+                  className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723] transition-colors"
                 >
                   재고합계
                 </button>
                 <button
                   onClick={() => { setStatusLocation("URGENT"); setIsMenuOpen(false); }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
+                  className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723] transition-colors"
                 >
                   임박 재고
                 </button>
                 <button
                   onClick={() => { setStatusLocation("HISTORY"); setIsMenuOpen(false); }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 font-bold text-sm text-gray-700 transition-colors"
+                  className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723] transition-colors"
                 >
                   히스토리
                 </button>
