@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   const { id, password } = await request.json();
 
   // 허용된 사용자 목록 및 공통 암호 (요청하신 대로 6332)
-  const users = ["Manager01", "god6332", "staff01"];
+  const users = ["manager01", "god6332", "staff01"];
   const VALID_PASSWORD = "6332";
 
   // 1. 아이디 및 비밀번호 확인
