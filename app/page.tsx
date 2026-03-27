@@ -73,7 +73,8 @@ export default function 재고관리페이지() {
     items.filter(item => item.product_name === productName && item.location === location)
          .reduce((acc, cur) => acc + cur.quantity, 0);
 
-  const isAdmin = (userId: string) => userId === "Manager01" || userId === "god6332";
+  // [수정] 매니저 아이디를 manager01 (소문자)로 변경
+  const isAdmin = (userId: string) => userId === "manager01" || userId === "god6332";
 
   async function 재고가져오기() {
     try {

@@ -4,7 +4,7 @@ import { createSessionToken, getCookieName, getSessionAgeSeconds } from "@/lib/a
 export async function POST(request: Request) {
   const { id, password } = await request.json();
 
-  // 허용된 사용자 목록 및 공통 암호 (요청하신 대로 6332)
+  // [수정] 허용된 사용자 목록에서 매니저 아이디를 manager01로 변경
   const users = ["manager01", "god6332", "staff01"];
   const VALID_PASSWORD = "6332";
 
