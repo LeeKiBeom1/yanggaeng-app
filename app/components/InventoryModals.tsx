@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 export default function InventoryModals(props: any) {
-  const { showInputModal, setShowInputModal, isBatchMode, statusLocation, YANGGANG_TYPES, SET_TYPES, selectedProducts, setSelectedProducts, expiryDate, setExpiryDate, quantity, setQuantity, setMemo, setSetMemo, saveInventory, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData, showNoticeInput, setShowNoticeInput, noticeTitle, setNoticeTitle, noticeContent, setNoticeContent, saveNotice } = props;
+  const { showInputModal, setShowInputModal, isBatchMode, statusLocation, YANGGANG_TYPES, SET_TYPES, selectedProduct, setSelectedProduct, expiryDate, setExpiryDate, quantity, setQuantity, setMemo, setSetMemo, saveInventory, isSaving, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData, showNoticeInput, setShowNoticeInput, noticeTitle, setNoticeTitle, noticeContent, setNoticeContent, saveNotice, pendingList, setPendingList } = props;
 
   const currentTypes = statusLocation === "SET" ? SET_TYPES : YANGGANG_TYPES;
 
@@ -14,20 +14,38 @@ export default function InventoryModals(props: any) {
     else { triggerToast("✅ 마감 정산 완료"); refreshData(); setStatusLocation("TOTAL"); }
   };
 
+  // 대기 목록에 추가
+  const addToPending = () => {
+    if (quantity <= 0) { triggerToast("수량을 입력해주세요."); return; }
+    setPendingList([...pendingList, { product_name: selectedProduct, quantity: quantity, expiry_date: expiryDate }]);
+    setQuantity(40); // 수량 초기화 (기본값 40)
+  };
+
   return (
     <>
+      <style jsx global>{`
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+      `}</style>
+
       {showInputModal && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowInputModal(false)}>
-          <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">{statusLocation === "SET" ? "세트 재고 추가" : isBatchMode ? "일괄 입고" : "재고 추가"}</h2>
+            
+            {/* 품목 선택 */}
             <div className="grid grid-cols-4 gap-2 mb-6 max-h-40 overflow-y-auto p-2 border border-[#F5F0E9] rounded-2xl bg-white text-center shadow-inner">
               {currentTypes.map((p: any) => {
                 const pName = statusLocation === "SET" ? p : `${p} 양갱`;
-                const isSelected = selectedProducts.includes(pName);
-                return (<button key={p} onClick={() => isBatchMode ? setSelectedProducts(isSelected ? selectedProducts.filter((x:any)=>x!==pName) : [...selectedProducts, pName]) : setSelectedProducts([pName])} className={`py-2 text-[10px] rounded-xl border font-bold transition-all ${isSelected ? "bg-[#5D2E2E] text-white border-[#5D2E2E]" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{p}</button>);
+                const isSelected = selectedProduct === pName;
+                return (<button key={p} onClick={() => setSelectedProduct(pName)} className={`py-2 text-[10px] rounded-xl border font-bold transition-all ${isSelected ? "bg-[#5D2E2E] text-white border-[#5D2E2E]" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{p}</button>);
               })}
             </div>
-            <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none" />
+
+            {/* 날짜 선택 (너비 조정 및 확인 단계 제거) */}
+            <div className="px-0.5">
+              <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none box-border" />
+            </div>
             
             {statusLocation === "SET" && (
               <div className="flex gap-2 mb-4">
@@ -37,9 +55,36 @@ export default function InventoryModals(props: any) {
               </div>
             )}
 
+            {/* 수량 조절 */}
             <div className="flex gap-2 mb-6"><button onClick={() => setQuantity(quantity + 10)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+10</button><button onClick={() => setQuantity(quantity + 40)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+40</button><button onClick={() => setQuantity(0)} className="flex-1 py-3 bg-[#FFF5F5] border border-[#FFE3E3] rounded-xl text-[11px] font-bold text-[#DC3545]">초기화</button></div>
-            <div className="flex items-center justify-center gap-8 mb-8"><button onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={quantity === 0 ? "" : quantity} placeholder="0" onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none placeholder:text-[#EFE9E1]" /><button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
-            <div className="flex gap-3 text-center"><button onClick={() => setShowInputModal(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button><button onClick={saveInventory} className="flex-[2] py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">저장하기</button></div>
+            <div className="flex items-center justify-center gap-8 mb-8"><button onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={quantity === 0 ? "" : quantity} placeholder="0" onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none placeholder:text-[#EFE9E1]" style={{appearance: 'textfield'}} /><button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
+            
+            {/* 입고 대기 목록 (일괄 입고 전용) */}
+            {isBatchMode && (
+              <div className="mb-6 p-3 bg-[#F9F5F0] rounded-2xl border border-[#F5F0E9] max-h-32 overflow-y-auto">
+                <p className="text-[10px] font-bold text-[#A68966] mb-2 uppercase">입고 대기 목록 ({pendingList.length})</p>
+                {pendingList.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between text-[11px] font-bold text-[#3E2723] mb-1 pb-1 border-b border-white/50">
+                    <span>{item.product_name.replace(" 양갱", "")} ({item.expiry_date.slice(5)})</span>
+                    <span>{item.quantity}개</span>
+                  </div>
+                ))}
+                {pendingList.length === 0 && <p className="text-[11px] text-[#D1C4B5] italic text-center py-2">대기 중인 항목 없음</p>}
+              </div>
+            )}
+
+            {/* 버튼 영역 */}
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3 text-center">
+                <button onClick={() => setShowInputModal(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button>
+                {isBatchMode && (
+                  <button onClick={addToPending} className="flex-1 py-4 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-2xl font-bold active:scale-95">추가</button>
+                )}
+              </div>
+              <button onClick={saveInventory} disabled={isSaving} className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg transition-all ${isSaving ? "bg-[#D1C4B5] cursor-not-allowed" : "bg-[#5D2E2E] active:scale-95"}`}>
+                {isSaving ? "저장 중..." : isBatchMode ? "전체 저장하기" : "저장하기"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -55,7 +100,7 @@ export default function InventoryModals(props: any) {
         </div>
       )}
 
-      {/* 마감 재고, 로그인, 수정, 이동, 삭제 모달 (기존 로직 유지) */}
+      {/* 마감 재고, 로그인, 수정, 이동, 삭제 모달 (스피너 제거 적용) */}
       {statusLocation === "CLOSING" && closingItems.length > 0 && (
         <div className="fixed inset-0 bg-white z-[800] flex flex-col p-6 overflow-hidden">
           <div className="max-w-md mx-auto w-full h-full flex flex-col">
@@ -63,7 +108,7 @@ export default function InventoryModals(props: any) {
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               <div className="bg-[#F9F5F0] px-6 py-2 rounded-full text-[#5D2E2E] font-bold text-sm mb-4">{closingItems[closingIndex].product_name}</div>
               <div className="text-[#A68966] text-base font-bold mb-8">유통기한: {closingItems[closingIndex].expiry_date}</div>
-              <input autoFocus type="number" key={closingItems[closingIndex].id} defaultValue={closingItems[closingIndex].quantity} onKeyDown={(e) => { if (e.key === "Enter") handleClosingNext(Number(e.currentTarget.value) || 0); }} className="w-full text-center text-7xl font-black bg-transparent outline-none text-[#5D2E2E] mb-12" />
+              <input autoFocus type="number" key={closingItems[closingIndex].id} defaultValue={closingItems[closingIndex].quantity} onKeyDown={(e) => { if (e.key === "Enter") handleClosingNext(Number(e.currentTarget.value) || 0); }} className="w-full text-center text-7xl font-black bg-transparent outline-none text-[#5D2E2E] mb-12" style={{appearance: 'textfield'}} />
               <button onClick={(e) => handleClosingNext(Number((e.currentTarget.previousElementSibling as HTMLInputElement).value) || 0)} className="w-full py-6 bg-[#5D2E2E] text-white rounded-[32px] text-xl font-bold shadow-xl active:scale-95 transition-all">확인 후 다음</button>
             </div>
           </div>
@@ -85,7 +130,7 @@ export default function InventoryModals(props: any) {
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setEditTarget(null)}>
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold mb-2 text-[#5D2E2E]">수량 수정</h3><p className="text-xs text-[#A68966] mb-8 font-bold">{editTarget.product_name} ({editTarget.expiry_date})</p>
-            <div className="flex items-center justify-center gap-8 mb-10"><button onClick={() => setEditQty(Math.max(0, editQty - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={editQty} onChange={(e) => setEditQty(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none" /><button onClick={() => setEditQty(editQty + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
+            <div className="flex items-center justify-center gap-8 mb-10"><button onClick={() => setEditQty(Math.max(0, editQty - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={editQty} onChange={(e) => setEditQty(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none" style={{appearance: 'textfield'}} /><button onClick={() => setEditQty(editQty + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
             <button onClick={confirmEdit} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">수정 완료</button>
           </div>
         </div>

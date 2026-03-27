@@ -18,6 +18,7 @@ export default function 재고관리페이지() {
   type 임박항목 = { id: string; product_name: string; quantity: number; expiry_date: string; };
   type 세트항목 = { id: string; set_name: string; quantity: number; expiry_date: string; color_data: string; };
   type 공지항목 = { id: string; title: string; content: string; created_at: string; };
+  type 입고대기 = { product_name: string; quantity: number; expiry_date: string; };
 
   const [items, setItems] = useState<재고항목[]>([]);
   const [히스토리목록, set히스토리목록] = useState<any[]>([]);
@@ -33,6 +34,7 @@ export default function 재고관리페이지() {
   const [아이디, set아이디] = useState("");
   const [비밀번호, set비밀번호] = useState("");
   const [인증중, set인증중] = useState(false);
+  const [저장중, set저장중] = useState(false);
 
   const [삭제대상, set삭제대상] = useState<any>(null);
   const [삭제모드, set삭제모드] = useState<"inventory" | "urgent" | "set" | "notice">("inventory");
@@ -46,10 +48,11 @@ export default function 재고관리페이지() {
 
   const [입력창보이기, set입력창보이기] = useState(false);
   const [일괄입고모드, set일괄입고모드] = useState(false);
-  const [선택품목들, set선택품목들] = useState<string[]>(["팥 양갱"]);
+  const [선택품목, set선택품목] = useState("팥 양갱");
   const [입력수량, set입력수량] = useState(0);
   const [유통기한, set유통기한] = useState(new Date().toISOString().split('T')[0]);
   const [세트색상, set세트색상] = useState("");
+  const [입고대기목록, set입고대기목록] = useState<입고대기[]>([]);
 
   const [공지입력보이기, set공지입력보이기] = useState(false);
   const [공지제목, set공지제목] = useState("");
@@ -125,30 +128,47 @@ export default function 재고관리페이지() {
   async function 로그아웃() { await fetch("/api/auth/logout", { method: "POST" }); set잠금해제됨(false); set인증창보이기(true); 토스트알림("로그아웃 되었습니다."); }
 
   async function 재고저장() {
-    if (!인증확인() || 입력수량 < 0) return;
+    if (!인증확인() || 저장중) return;
+
+    // 일괄 입고 모드일 때 대기 목록 처리
+    if (일괄입고모드) {
+      if (입고대기목록.length === 0) { 토스트알림("추가된 항목이 없습니다."); return; }
+      set저장중(true);
+      try {
+        for (const 항목 of 입고대기목록) {
+          const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: "WAREHOUSE", product_name: 항목.product_name, expiry_date: 항목.expiry_date }).maybeSingle();
+          if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 항목.quantity }).eq("id", 기존.id);
+          else await supabase.from("inventory").insert([{ product_name: 항목.product_name, quantity: 항목.quantity, location: "WAREHOUSE", expiry_date: 항목.expiry_date }]);
+          await supabase.from("history").insert([{ ts: Date.now(), kind: "IN", product_name: 항목.product_name, expiry_date: 항목.expiry_date, location: "WAREHOUSE", delta: 항목.quantity }]);
+        }
+        토스트알림(`✅ ${입고대기목록.length}건 저장 완료`);
+        set입고대기목록([]); set입력창보이기(false); set일괄입고모드(false);
+      } catch (e) { console.error(e); } finally { set저장중(false); 재고가져오기(); }
+      return;
+    }
+
+    // 일반 재고 추가 처리
+    if (입력수량 <= 0) { 토스트알림("수량을 입력해주세요."); return; }
+    set저장중(true);
     try {
       if (현재위치 === "URGENT") {
-        if (남은일수계산(유통기한) > 14) { 토스트알림("올바르지 않은 유통기한입니다."); return; }
-        for (const 품목 of 선택품목들) { await supabase.from("urgent_inventory").insert([{ product_name: 품목, quantity: 입력수량, expiry_date: 유통기한 }]); }
+        if (남은일수계산(유통기한) > 14) { 토스트알림("올바르지 않은 유통기한입니다."); set저장중(false); return; }
+        await supabase.from("urgent_inventory").insert([{ product_name: 선택품목, quantity: 입력수량, expiry_date: 유통기한 }]);
       } else if (현재위치 === "SET") {
-        for (const 세트명 of 선택품목들) {
-          const { data: 기존 } = await supabase.from("set_inventory").select("*").match({ set_name: 세트명, expiry_date: 유통기한, color_data: 세트색상 }).maybeSingle();
-          if (기존) await supabase.from("set_inventory").update({ quantity: 기존.quantity + 입력수량 }).eq("id", 기존.id);
-          else await supabase.from("set_inventory").insert([{ set_name: 세트명, quantity: 입력수량, expiry_date: 유통기한, color_data: 세트색상 }]);
-        }
+        const { data: 기존 } = await supabase.from("set_inventory").select("*").match({ set_name: 선택품목, expiry_date: 유통기한, color_data: 세트색상 }).maybeSingle();
+        if (기존) await supabase.from("set_inventory").update({ quantity: 기존.quantity + 입력수량 }).eq("id", 기존.id);
+        else await supabase.from("set_inventory").insert([{ set_name: 선택품목, quantity: 입력수량, expiry_date: 유통기한, color_data: 세트색상 }]);
       } else {
         const 대상위치 = 현재위치 === "WAREHOUSE" ? "WAREHOUSE" : "FLOOR";
-        for (const 품목 of 선택품목들) {
-          const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: 대상위치, product_name: 품목, expiry_date: 유통기한 }).maybeSingle();
-          if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 입력수량 }).eq("id", 기존.id);
-          else await supabase.from("inventory").insert([{ product_name: 품목, quantity: 입력수량, location: 대상위치, expiry_date: 유통기한 }]);
-          if (대상위치 === "WAREHOUSE") {
-            await supabase.from("history").insert([{ ts: Date.now(), kind: "IN", product_name: 품목, expiry_date: 유통기한, location: "WAREHOUSE", delta: 입력수량 }]);
-          }
+        const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: 대상위치, product_name: 선택품목, expiry_date: 유통기한 }).maybeSingle();
+        if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 입력수량 }).eq("id", 기존.id);
+        else await supabase.from("inventory").insert([{ product_name: 선택품목, quantity: 입력수량, location: 대상위치, expiry_date: 유통기한 }]);
+        if (대상위치 === "WAREHOUSE") {
+          await supabase.from("history").insert([{ ts: Date.now(), kind: "IN", product_name: 선택품목, expiry_date: 유통기한, location: "WAREHOUSE", delta: 입력수량 }]);
         }
       }
-      토스트알림("✅ 저장 완료"); set입력창보이기(false); set세트색상(""); 재고가져오기();
-    } catch (e) { console.error(e); }
+      토스트알림("✅ 저장 완료"); set입력창보이기(false); 재고가져오기();
+    } catch (e) { console.error(e); } finally { set저장중(false); }
   }
 
   async function 공지저장() {
@@ -210,13 +230,19 @@ export default function 재고관리페이지() {
   return (
     <div className="w-full min-h-screen bg-[#FDFBF7] font-sans text-[#3E2723] overflow-x-hidden">
       <div className="p-2 sm:p-4 max-w-5xl mx-auto">
+        <style jsx global>{`
+          input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+          input[type=number] { -moz-appearance: textfield; }
+          input, select, textarea { color: #3E2723; }
+        `}</style>
+
         <InventoryHeader statusLocation={현재위치} setStatusLocation={set현재위치} setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} setShowAuthModal={set인증창보이기} />
         <div className="flex justify-between items-end mb-4 px-1 h-[42px]">
           {현재위치 !== "TOTAL" && 현재위치 !== "HISTORY" && 현재위치 !== "CLOSING" && 현재위치 !== "NOTICE" && (
             <div className="flex gap-2 h-full items-center">
-              <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목들(현재위치 === "SET" ? ["4구 클래식"] : ["팥 양갱"]); set일괄입고모드(false); set입력창보이기(true); } }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 재고 추가</button>
+              <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목(현재위치 === "SET" ? "4구 클래식" : "팥 양갱"); set일괄입고모드(false); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 재고 추가</button>
               {현재위치 === "WAREHOUSE" && (
-                <button onClick={() => { if (인증확인()) { set입력수량(40); set선택품목들([]); set일괄입고모드(true); set입력창보이기(true); } }} className="h-full px-5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>
+                <button onClick={() => { if (인증확인()) { set입력수량(40); set선택품목("팥 양갱"); set일괄입고모드(true); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>
               )}
             </div>
           )}
@@ -233,7 +259,7 @@ export default function 재고관리페이지() {
           setShowMoveUrgentModal={set임박이동창보이기} setMoveUrgentTarget={set임박이동대상} fmtDate={(iso:any)=>iso.slice(5).replace("-","/")}
         />
         <InventoryModals 
-          showInputModal={입력창보이기} setShowInputModal={set입력창보이기} isBatchMode={일괄입고모드} statusLocation={현재위치} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류} selectedProducts={선택품목들} setSelectedProducts={set선택품목들} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} setMemo={세트색상} setSetMemo={set세트색상} saveInventory={재고저장}
+          showInputModal={입력창보이기} setShowInputModal={set입력창보이기} isBatchMode={일괄입고모드} statusLocation={현재위치} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류} selectedProduct={선택품목} setSelectedProduct={set선택품목} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} setMemo={세트색상} setSetMemo={set세트색상} saveInventory={재고저장} isSaving={저장중}
           showAuthModal={인증창보이기} loginId={아이디} setLoginId={set아이디} loginPassword={비밀번호} setLoginPassword={set비밀번호} isAuthLoading={인증중} signIn={로그인}
           editTarget={수정대상} setEditTarget={set수정대상} editQty={수정수량} setEditQty={set수정수량} confirmEdit={수정확정}
           moveTarget={이동대상} setMoveTarget={set이동대상} moveQty={이동수량} setMoveQty={set이동수량} moveInventory={재고이동}
@@ -241,6 +267,7 @@ export default function 재고관리페이지() {
           showMoveUrgentModal={임박이동창보이기} setShowMoveUrgentModal={set임박이동창보이기} moveUrgentTarget={임박이동대상} confirmMoveToUrgent={임박재고이동확정}
           closingItems={마감대상목록} closingIndex={현재마감인덱스} setClosingIndex={set현재마감인덱스} setStatusLocation={set현재위치} triggerToast={토스트알림} refreshData={재고가져오기} 
           showNoticeInput={공지입력보이기} setShowNoticeInput={set공지입력보이기} noticeTitle={공지제목} setNoticeTitle={set공지제목} noticeContent={공지내용} setNoticeContent={set공지내용} saveNotice={공지저장}
+          pendingList={입고대기목록} setPendingList={set입고대기목록}
         />
         {토스트메시지 && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{토스트메시지}</div>}
       </div>
