@@ -63,5 +63,6 @@ export interface InventoryItem {
     id: string;
     title: string;
     content: string;
+    user_id: string;    // [에러 해결] 작성자 ID 필드 추가
     created_at: string;
   }

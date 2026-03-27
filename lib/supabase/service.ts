@@ -4,7 +4,6 @@ import {
   UrgentInventory, UrgentLog, Notice, DailyClosing 
 } from "@/app/types/inventory";
 
-// Supabase 클라이언트 설정
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -38,18 +37,23 @@ export const fetchAllInventoryData = async () => {
 };
 
 /**
- * [저장] 새로운 재고를 등록하거나 기존 재고 수량을 추가합니다.
+ * [저장] 재고 등록 및 공지사항 등록 (user_id 포함)
  */
 export const saveStock = async (params: {
-  table: "inventory" | "urgent_inventory" | "set_inventory";
+  table: string;
   data: any;
   userId: string;
 }) => {
   const { table, data, userId } = params;
 
-  // 1. 기존에 동일한 유통기한의 품목이 있는지 확인 (중복 방지)
+  // 공지사항(notices) 테이블인 경우 중복 체크 없이 바로 삽입
+  if (table === "notices") {
+    return await supabase.from(table).insert([{ ...data, user_id: userId }]);
+  }
+
+  // 기존 재고 중복 확인 (상품명 + 유통기한)
   let query = supabase.from(table).select("*").match({
-    product_name: data.product_name || data.set_name,
+    [data.product_name ? "product_name" : "set_name"]: data.product_name || data.set_name,
     expiry_date: data.expiry_date,
   });
 
@@ -61,14 +65,15 @@ export const saveStock = async (params: {
 
   const { data: exist } = await query.maybeSingle();
 
-  // 2. 존재하면 수량 더하기(Update), 없으면 새로 만들기(Insert)
   if (exist) {
+    // 존재하면 수량 합산
     await supabase.from(table).update({ quantity: exist.quantity + data.quantity }).eq("id", exist.id);
   } else {
+    // 없으면 새로 추가
     await supabase.from(table).insert([data]);
   }
 
-  // 3. 창고 입고일 경우에만 히스토리 기록
+  // 창고 입고 시 히스토리 기록
   if (table === "inventory" && data.location === "WAREHOUSE") {
     await supabase.from("history").insert([{
       ts: Date.now(),
@@ -83,7 +88,7 @@ export const saveStock = async (params: {
 };
 
 /**
- * [수정] 특정 항목의 수량을 직접 수정합니다.
+ * [수정] 수량 변경 (0 이하면 삭제)
  */
 export const updateStockQty = async (table: string, id: string, qty: number) => {
   if (qty <= 0) {
@@ -93,18 +98,16 @@ export const updateStockQty = async (table: string, id: string, qty: number) => 
 };
 
 /**
- * [이동] 창고 재고를 홀로 이동시킵니다.
+ * [이동] 재고 위치 이동 및 히스토리 기록
  */
 export const moveStock = async (item: InventoryItem, moveQty: number, userId: string) => {
   const targetLoc = item.location === "FLOOR" ? "WAREHOUSE" : "FLOOR";
 
-  // 1. 목적지(홀)에 동일 유통기한 품목 있는지 확인
   const { data: exist } = await supabase.from("inventory")
     .select("*")
     .match({ location: targetLoc, product_name: item.product_name, expiry_date: item.expiry_date })
     .maybeSingle();
 
-  // 2. 목적지 수량 증가
   if (exist) {
     await supabase.from("inventory").update({ quantity: exist.quantity + moveQty }).eq("id", exist.id);
   } else {
@@ -116,14 +119,12 @@ export const moveStock = async (item: InventoryItem, moveQty: number, userId: st
     }]);
   }
 
-  // 3. 원본(창고) 수량 감소 또는 삭제
   if (moveQty >= item.quantity) {
     await supabase.from("inventory").delete().eq("id", item.id);
   } else {
     await supabase.from("inventory").update({ quantity: item.quantity - moveQty }).eq("id", item.id);
   }
 
-  // 4. 창고에서 나가는 이동일 경우 히스토리 기록
   if (item.location === "WAREHOUSE") {
     await supabase.from("history").insert([{
       ts: Date.now(),
@@ -138,14 +139,14 @@ export const moveStock = async (item: InventoryItem, moveQty: number, userId: st
 };
 
 /**
- * [삭제] 특정 항목을 테이블에서 삭제합니다.
+ * [삭제] 레코드 삭제
  */
 export const deleteItem = async (table: string, id: string) => {
   return await supabase.from(table).delete().eq("id", id);
 };
 
 /**
- * [마감] 일마감 데이터를 저장합니다.
+ * [마감] 마감 기록 저장
  */
 export const saveClosingRecord = async (closingData: any) => {
   return await supabase.from("daily_closing").insert([closingData]);
