@@ -1,22 +1,18 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 export default function InventoryModals(props: any) {
   const { showInputModal, setShowInputModal, isBatchMode, statusLocation, urgentTab, urgentItems, YANGGANG_TYPES, SET_TYPES, selectedProduct, setSelectedProduct, expiryDate, setExpiryDate, quantity, setQuantity, setMemo, setSetMemo, saveInventory, isSaving, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData, saveClosing, showNoticeInput, setShowNoticeInput, noticeTitle, setNoticeTitle, noticeContent, setNoticeContent, saveNotice, pendingList, setPendingList, urgentProcessTarget, setUrgentProcessTarget, confirmUrgentProcess } = props;
-
   const [procQty, setProcQty] = useState(0);
 
   const handleClosingNext = async (val: number) => {
     const item = closingItems[closingIndex];
     if (item.quantity !== val) await supabase.from("inventory").update({ quantity: val }).eq("id", item.id);
     if (closingIndex < closingItems.length - 1) setClosingIndex(closingIndex + 1);
-    else {
-      // 마감 완료 시점 스냅샷 생성 루틴 (생략된 데이터 없이 저장)
-      saveClosing({}); 
-      setStatusLocation("TOTAL");
-    }
+    else { saveClosing({}); setStatusLocation("TOTAL"); }
   };
 
   const addToPending = () => {
@@ -33,7 +29,6 @@ export default function InventoryModals(props: any) {
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowInputModal(false)}>
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">{statusLocation === "URGENT" && urgentTab !== "STORAGE" ? "항목 선택" : "재고 추가"}</h2>
-            
             {statusLocation === "URGENT" && urgentTab !== "STORAGE" ? (
               <div className="space-y-2 mb-6">
                 {urgentItems.map((item: any) => (
@@ -51,7 +46,8 @@ export default function InventoryModals(props: any) {
                     return (<button key={p} onClick={() => setSelectedProduct(pName)} className={`py-2 text-[10px] rounded-xl border font-bold transition-all ${selectedProduct === pName ? "bg-[#5D2E2E] text-white border-[#5D2E2E]" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{p}</button>);
                   })}
                 </div>
-                <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none" />
+                {/* [수정] 모바일 날짜 선택 접근성 강화 */}
+                <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none text-[16px]" />
                 {statusLocation === "SET" && (
                   <div className="flex gap-2 mb-4">
                     {["Red", "Navy", "Pink"].map((color) => (
@@ -68,7 +64,7 @@ export default function InventoryModals(props: any) {
                 )}
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-3 text-center"><button onClick={() => setShowInputModal(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button>{isBatchMode && <button onClick={addToPending} className="flex-1 py-4 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-2xl font-bold">추가</button>}</div>
-                  <button onClick={saveInventory} disabled={isSaving} className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg ${isSaving ? "bg-[#D1C4B5]" : "bg-[#5D2E2E]"}`}>{isSaving ? "저장 중..." : "전체 저장하기"}</button>
+                  <button onClick={saveInventory} disabled={isSaving} className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg ${isSaving ? "bg-[#D1C4B5]" : "bg-[#5D2E2E]"}`}>{isSaving ? "저장 중..." : "확인"}</button>
                 </div>
               </>
             )}
@@ -117,7 +113,7 @@ export default function InventoryModals(props: any) {
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold mb-2 text-[#5D2E2E]">수량 수정</h3><p className="text-xs text-[#A68966] mb-8 font-bold">{editTarget.product_name} ({editTarget.expiry_date})</p>
             <div className="flex items-center justify-center gap-8 mb-10"><button onClick={() => setEditQty(Math.max(0, editQty - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={editQty} onChange={(e) => setEditQty(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none" /><button onClick={() => setEditQty(editQty + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
-            <button onClick={confirmEdit} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">수정 완료</button>
+            <button onClick={confirmEdit} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">확인</button>
           </div>
         </div>
       )}
@@ -157,7 +153,7 @@ export default function InventoryModals(props: any) {
             <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">공지사항 작성</h2>
             <input type="text" value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} placeholder="제목" className="w-full mb-4 p-4 border rounded-2xl bg-white outline-none" />
             <textarea value={noticeContent} onChange={(e) => setNoticeContent(e.target.value)} placeholder="내용" className="w-full mb-8 p-4 border rounded-2xl bg-white outline-none min-h-[150px] resize-none" />
-            <div className="flex gap-3"><button onClick={() => setShowNoticeInput(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button><button onClick={saveNotice} className="flex-[2] py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">등록</button></div>
+            <div className="flex gap-3"><button onClick={() => setShowNoticeInput(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button><button onClick={saveNotice} className="flex-[2] py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">확인</button></div>
           </div>
         </div>
       )}

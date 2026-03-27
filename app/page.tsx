@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { useInventory } from "./hooks/useInventory";
 import InventoryHeader from "./components/InventoryHeader";
 import InventoryModals from "./components/InventoryModals";
@@ -6,6 +7,27 @@ import InventoryContent from "./components/InventoryContent";
 
 export default function 재고관리페이지() {
   const { auth, inventory, workflow, ui, constants } = useInventory();
+
+  // [수정] 모달 오픈 시 스크롤 방지 로직
+  useEffect(() => {
+    const isModalOpen = auth.showModal || ui.modalStates.input || ui.modalStates.edit || ui.modalStates.move || ui.modalStates.delete || ui.modalStates.moveUrgent || ui.modalStates.notice || ui.modalStates.urgentProcess || ui.location === "CLOSING";
+    if (isModalOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "unset";
+  }, [auth.showModal, ui.modalStates, ui.location]);
+
+  // [수정] 로그아웃 상태일 때 로그인 창만 강제 출력
+  if (!auth.isUnlocked) {
+    return (
+      <div className="w-full h-screen bg-[#FDFBF7] flex items-center justify-center">
+        <InventoryModals 
+          showAuthModal={auth.showModal} loginId={auth.userId} setLoginId={(id:any)=>auth.setUserId(id)} 
+          loginPassword={auth.password} setLoginPassword={(pw:any)=>auth.setPassword(pw)} 
+          isAuthLoading={auth.isLoading} signIn={auth.login}
+        />
+        {ui.toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[1000]">{ui.toast}</div>}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen bg-[#FDFBF7] font-sans text-[#3E2723] overflow-x-hidden">
@@ -15,7 +37,6 @@ export default function 재고관리페이지() {
           input[type=number] { -moz-appearance: textfield; }
         `}</style>
 
-        {/* 1. 상단 헤더 */}
         <InventoryHeader 
           statusLocation={ui.location} setStatusLocation={ui.setLocation} 
           archiveTab={ui.archiveTab} setArchiveTab={ui.setArchiveTab} 
@@ -25,12 +46,11 @@ export default function 재고관리페이지() {
           checkClosing={workflow.startClosing} setShowAuthModal={auth.openLogin}
         />
 
-        {/* 2. 상단 액션 버튼 영역 */}
         <div className="flex justify-between items-end mb-4 px-1 h-[42px]">
           {!["TOTAL", "ARCHIVE", "CLOSING", "NOTICE"].includes(ui.location) && (
             <div className="flex gap-2 h-full items-center">
               <button onClick={() => ui.openInput(false)} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">
-                + {ui.location === "URGENT" ? (ui.urgentTab === "USAGE" ? "사용" : "폐기") : "재고"} 추가
+                + {ui.location === "URGENT" ? "추가" : "재고 추가"}
               </button>
               {ui.location === "WAREHOUSE" && (
                 <button onClick={() => ui.openInput(true)} className="h-full px-5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>
@@ -43,7 +63,6 @@ export default function 재고관리페이지() {
           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{ui.location}</span>
         </div>
 
-        {/* 3. 본문 콘텐츠 리스트 */}
         <InventoryContent 
           statusLocation={ui.location} archiveTab={ui.archiveTab} urgentTab={ui.urgentTab} userRole={auth.userRole} 
           historyEvents={inventory.history} items={inventory.items} urgentItems={inventory.urgent} 
@@ -63,7 +82,6 @@ export default function 재고관리페이지() {
           fmtDate={(iso:any)=>iso.slice(5).replace("-","/")}
         />
 
-        {/* 4. 각종 작업용 모달들 */}
         <InventoryModals 
           showInputModal={ui.modalStates.input} setShowInputModal={(s:any)=>ui.setModals((p:any)=>({...p, input:s}))} 
           isBatchMode={ui.modalStates.batch} statusLocation={ui.location} urgentTab={ui.urgentTab} urgentItems={inventory.urgent} 
@@ -83,7 +101,6 @@ export default function 재고관리페이지() {
           urgentProcessTarget={ui.modalStates.urgentProcess} setUrgentProcessTarget={(t:any)=>ui.setModals((p:any)=>({...p, urgentProcess:t}))} confirmUrgentProcess={inventory.confirmUrgentProcess}
         />
 
-        {/* 5. 하단 알림 피드백 */}
         {ui.toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{ui.toast}</div>}
       </div>
     </div>

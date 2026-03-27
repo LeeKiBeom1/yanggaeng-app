@@ -1,79 +1,16 @@
 "use client";
 import { useState } from "react";
 
-interface ContentProps {
-  statusLocation: string;
-  archiveTab: string;
-  urgentTab: string;
-  userRole: "ADMIN" | "STAFF";
-  historyEvents: any[];
-  clearHistory: () => void;
-  items: any[];
-  urgentItems: any[];
-  setInventoryItems: any[];
-  noticeItems: any[];
-  usageItems: any[];
-  disposalItems: any[];
-  closingRecords: any[];
-  YANGGANG_TYPES: string[];
-  SET_TYPES: string[];
-  getLocationStock: (pName: string, loc: any) => number; // [수정] 타입 호환성 해결
-  getDaysUntilExpiry: (date: string) => number;
-  ensureAuthenticated: () => boolean;
-  setEditTarget: (item: any) => void;
-  setMoveTarget: (item: any) => void;
-  setMoveQty: (qty: number) => void;
-  setDeleteMode: (mode: string) => void;
-  setDeleteTarget: (item: any) => void;
-  setShowMoveUrgentModal: (show: boolean) => void;
-  setMoveUrgentTarget: (item: any) => void;
-  fmtDate: (iso: string) => string;
-}
-
-export default function InventoryContent(props: ContentProps) {
-  const {
-    statusLocation,
-    archiveTab,
-    urgentTab,
-    userRole,
-    historyEvents,
-    clearHistory,
-    items,
-    urgentItems,
-    setInventoryItems,
-    noticeItems,
-    usageItems,
-    disposalItems,
-    closingRecords,
-    YANGGANG_TYPES,
-    SET_TYPES,
-    getLocationStock, // [복구] 누락된 변수 구조분해할당
-    getDaysUntilExpiry,
-    ensureAuthenticated,
-    setEditTarget,
-    setMoveTarget,
-    setMoveQty,
-    setDeleteMode,
-    setDeleteTarget,
-    setShowMoveUrgentModal,
-    setMoveUrgentTarget,
-    fmtDate,
-  } = props;
-
+export default function InventoryContent(props: any) {
+  const { statusLocation, archiveTab, urgentTab, userRole, historyEvents, clearHistory, items, urgentItems, setInventoryItems, noticeItems, usageItems, disposalItems, closingRecords, YANGGANG_TYPES, SET_TYPES, getLocationStock, getDaysUntilExpiry, ensureAuthenticated, setEditTarget, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget, fmtDate } = props;
   const [showDetail, setShowDetail] = useState(false);
 
-  // 1. 재고 합계 화면 (통합 뷰 + 상세보기 기능)
   if (statusLocation === "TOTAL") {
     return (
       <div className="w-full bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden mb-12 shadow-sm">
         <div className="p-4 border-b border-[#F5F0E9] flex justify-between items-center bg-[#F9F5F0]">
           <h3 className="text-sm font-bold text-[#5D2E2E]">전체 재고 통합 뷰</h3>
-          <button
-            onClick={() => setShowDetail(!showDetail)}
-            className="text-[10px] font-bold px-3 py-1.5 rounded-lg border bg-white text-[#A68966] active:scale-95 transition-all"
-          >
-            {showDetail ? "간략히 보기" : "상세 내역 보기"}
-          </button>
+          <button onClick={() => setShowDetail(!showDetail)} className="text-[10px] font-bold px-3 py-1.5 rounded-lg border bg-white text-[#A68966] active:scale-95 transition-all">{showDetail ? "간략히 보기" : "상세 내역 보기"}</button>
         </div>
         <table className="w-full text-center table-fixed border-collapse">
           <thead>
@@ -96,9 +33,7 @@ export default function InventoryContent(props: ContentProps) {
                     {showDetail && details.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {details.map((d: any) => (
-                          <div key={d.id} className="text-[9px] text-gray-400 font-medium">
-                            [{d.location === "FLOOR" ? "홀" : "창"}] {fmtDate(d.expiry_date)} ({d.quantity})
-                          </div>
+                          <div key={d.id} className="text-[9px] text-gray-400 font-medium">[{d.location === "FLOOR" ? "홀" : "창"}] {fmtDate(d.expiry_date)} ({d.quantity})</div>
                         ))}
                       </div>
                     )}
@@ -115,7 +50,6 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 2. 기록 보관소
   if (statusLocation === "ARCHIVE") {
     if (archiveTab === "DAILY") {
       return (
@@ -127,12 +61,7 @@ export default function InventoryContent(props: ContentProps) {
                 <div className="text-sm font-bold text-[#5D2E2E]">{rec.closing_date} 마감 기록</div>
                 <div className="text-[10px] text-[#A68966] mt-1">담당: {rec.user_id}</div>
               </div>
-              <button
-                onClick={() => { if (userRole === "ADMIN") { setDeleteMode("daily"); setDeleteTarget(rec); } }}
-                className={`px-4 py-2 rounded-xl text-[11px] font-bold ${userRole === "ADMIN" ? "bg-[#FFF5F5] text-[#DC3545]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
-              >
-                삭제
-              </button>
+              <button onClick={() => { if (userRole === "ADMIN") { setDeleteMode("daily"); setDeleteTarget(rec); } }} className={`px-4 py-2 rounded-xl text-[11px] font-bold ${userRole === "ADMIN" ? "bg-[#FFF5F5] text-[#DC3545]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>삭제</button>
             </div>
           ))}
           {closingRecords.length === 0 && <div className="py-20 text-center text-sm text-[#A68966] italic">기록이 없습니다.</div>}
@@ -161,7 +90,6 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 3. 공지사항
   if (statusLocation === "NOTICE") {
     return (
       <div className="w-full space-y-4 mb-12">
@@ -179,23 +107,25 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 4. 임박 사용/폐기 내역
+  // [수정] 임박 사용/폐기 내역 UI 레이아웃 변경
   if (statusLocation === "URGENT" && (urgentTab === "USAGE" || urgentTab === "DISPOSAL")) {
     const list = urgentTab === "USAGE" ? usageItems : disposalItems;
+    const todayStr = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
     return (
       <div className="w-full space-y-4 mb-12">
-        <h3 className="px-1 text-sm font-bold text-[#5D2E2E]">{urgentTab === "USAGE" ? "사용" : "폐기"} 내역 (30일)</h3>
+        <h3 className="px-1 text-sm font-bold text-[#5D2E2E]">{urgentTab === "USAGE" ? "사용" : "폐기"} 내역</h3>
         <div className="bg-white rounded-2xl border border-[#EFE9E1] divide-y overflow-hidden shadow-sm">
           {list.map((item: any) => (
-            <div key={item.id} className="px-4 py-4 flex justify-between items-center">
-              <div>
-                <div className="font-bold text-[14px]">{item.product_name}</div>
-                <div className="text-[10px] text-[#A68966]">{fmtDate(item.expiry_date)} 등록</div>
+            <div key={item.id} className="px-5 py-4 flex flex-col gap-1">
+              <div className="flex justify-between items-start">
+                <span className="font-bold text-[15px] text-[#3E2723]">{item.product_name}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[13px] font-bold text-[#A68966]">{fmtDate(item.expiry_date)}</span>
+                  <span className="font-black text-[16px] text-[#5D2E2E]">{item.quantity}개</span>
+                  <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode(urgentTab === "USAGE" ? "usage" : "disposal"); setDeleteTarget(item); } }} className="text-[#DC3545] font-bold ml-1">×</button>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="font-black text-[#5D2E2E]">{item.quantity}개</span>
-                <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode(urgentTab === "USAGE" ? "usage" : "disposal"); setDeleteTarget(item); } }} className="text-[#DC3545] font-bold">×</button>
-              </div>
+              <div className="text-[10px] font-bold text-[#D1C4B5]">{todayStr}</div>
             </div>
           ))}
           {list.length === 0 && <div className="py-20 text-center text-sm text-[#A68966] italic">내역이 없습니다.</div>}
@@ -204,7 +134,6 @@ export default function InventoryContent(props: ContentProps) {
     );
   }
 
-  // 5. 메인 리스트 뷰
   const currentTypes = statusLocation === "SET" ? SET_TYPES : YANGGANG_TYPES;
   if (statusLocation === "CLOSING") return null;
 
@@ -212,34 +141,21 @@ export default function InventoryContent(props: ContentProps) {
     <div className="w-full space-y-4 mb-12">
       {currentTypes.map((name: string) => {
         const pName = statusLocation === "SET" ? name : `${name} 양갱`;
-        let list =
-          statusLocation === "SET"
-            ? setInventoryItems.filter((i: any) => i.set_name === pName)
-            : statusLocation === "URGENT"
-            ? urgentItems.filter((i: any) => i.product_name === pName)
-            : items.filter((i: any) => i.product_name === pName && i.location === statusLocation);
-
+        let list = statusLocation === "SET" ? setInventoryItems.filter((i: any) => i.set_name === pName) : statusLocation === "URGENT" ? urgentItems.filter((i: any) => i.product_name === pName) : items.filter((i: any) => i.product_name === pName && i.location === statusLocation);
         return (
           <div key={name} className={`bg-white rounded-[24px] border border-[#EFE9E1] shadow-sm overflow-hidden ${list.length === 0 ? "opacity-60" : ""}`}>
             <div className="bg-[#F9F5F0] px-4 py-2 border-b border-[#F5F0E9] font-bold text-[13px] text-[#5D2E2E]">{name}</div>
             <div className="p-2">
               {list.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">
-                  {list.sort((a,b) => a.expiry_date.localeCompare(b.expiry_date)).map((item: any) => {
+                  {list.sort((a:any, b:any) => a.expiry_date.localeCompare(b.expiry_date)).map((item: any) => {
                     const d = getDaysUntilExpiry(item.expiry_date);
-                    const b = d <= 1 ? "bg-red-500 shadow-[0_0_5px_#ef4444]" : d <= 14 ? "bg-orange-500 shadow-[0_0_5px_#f97316]" : "bg-green-500 shadow-[0_0_5px_#22c55e]";
+                    const bColor = d <= 1 ? "bg-red-500 shadow-[0_0_5px_#ef4444]" : d <= 14 ? "bg-orange-500 shadow-[0_0_5px_#f97316]" : "bg-green-500 shadow-[0_0_5px_#22c55e]";
                     return (
                       <div key={item.id} className="bg-[#FDFBF7] rounded-xl border border-[#F5F0E9] p-2 flex flex-col gap-1">
                         <div className="flex items-center justify-between">
-                          <div
-                            onClick={() => {
-                              if (ensureAuthenticated() && statusLocation !== "SET") {
-                                setEditTarget(item);
-                              }
-                            }}
-                            className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"
-                          >
-                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b}`} />
+                          <div onClick={() => { if (ensureAuthenticated() && statusLocation !== "SET") setEditTarget(item); }} className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${bColor}`} />
                             <span className="text-[12px] font-bold text-[#5D2E2E] shrink-0">{fmtDate(item.expiry_date)}</span>
                             <span className="text-[12px] font-black text-[#3E2723] shrink-0">{item.quantity}개</span>
                           </div>
@@ -250,18 +166,7 @@ export default function InventoryContent(props: ContentProps) {
                             {statusLocation === "WAREHOUSE" && (
                               <button onClick={() => { if (ensureAuthenticated()) { setMoveTarget(item); setMoveQty(item.quantity); } }} className="w-6 h-6 bg-white border border-[#F5F0E9] rounded text-[11px]">🚚</button>
                             )}
-                            <button
-                              onClick={() => {
-                                if (ensureAuthenticated()) {
-                                  const mode = statusLocation === "SET" ? "set" : statusLocation === "URGENT" ? "urgent" : "inventory";
-                                  setDeleteMode(mode);
-                                  setDeleteTarget(item);
-                                }
-                              }}
-                              className="w-6 h-6 bg-[#FFF5F5] border border-[#FFE3E3] text-[#DC3545] rounded font-bold text-sm active:scale-90"
-                            >
-                              ×
-                            </button>
+                            <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode(statusLocation === "SET" ? "set" : statusLocation === "URGENT" ? "urgent" : "inventory"); setDeleteTarget(item); } }} className="w-6 h-6 bg-[#FFF5F5] border border-[#FFE3E3] text-[#DC3545] rounded font-bold text-sm active:scale-90">×</button>
                           </div>
                         </div>
                         {item.color_data && <div className="text-[10px] font-bold ml-3.5" style={{ color: item.color_data === "Red" ? "#DC3545" : item.color_data === "Navy" ? "#001F3F" : "#FF69B4" }}>● {item.color_data}</div>}
