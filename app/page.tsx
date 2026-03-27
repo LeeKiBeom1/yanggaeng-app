@@ -25,11 +25,11 @@ export default function 재고관리페이지() {
       auth.showModal || ui.modalStates.input || ui.modalStates.edit || 
       ui.modalStates.move || ui.modalStates.delete || ui.modalStates.moveUrgent || 
       ui.modalStates.notice || ui.modalStates.urgentProcess || 
-      ui.modalStates.closingDetail || ui.location === "CLOSING";
+      ui.modalStates.closingDetail || ui.location === "CLOSING" || workflow.closingList.length > 0;
       
     if (isModalOpen) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "unset";
-  }, [auth.showModal, ui.modalStates, ui.location]);
+  }, [auth.showModal, ui.modalStates, ui.location, workflow.closingList]);
 
   // [보안] 로그아웃 상태에서는 로그인창만 노출
   if (!auth.isUnlocked) {
@@ -53,13 +53,11 @@ export default function 재고관리페이지() {
   return (
     <div className="w-full min-h-screen bg-[#FDFBF7] font-sans text-[#3E2723] overflow-x-hidden">
       <div className="p-2 sm:p-4 max-w-5xl mx-auto">
-        {/* 숫자 입력창 화살표 제거 스타일 */}
         <style jsx global>{`
           input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
           input[type=number] { -moz-appearance: textfield; }
         `}</style>
 
-        {/* 상단 헤더 및 탭 메뉴 */}
         <InventoryHeader 
           statusLocation={ui.location} setStatusLocation={ui.setLocation} 
           archiveTab={ui.archiveTab} setArchiveTab={ui.setArchiveTab} 
@@ -69,7 +67,6 @@ export default function 재고관리페이지() {
           checkClosing={workflow.startClosing} setShowAuthModal={auth.openLogin}
         />
 
-        {/* 상단 액션 버튼 영역 */}
         <div className="flex justify-between items-end mb-4 px-1 h-[42px]">
           {!["TOTAL", "ARCHIVE", "CLOSING", "NOTICE"].includes(ui.location) && (
             <div className="flex gap-2 h-full items-center">
@@ -102,7 +99,6 @@ export default function 재고관리페이지() {
           </span>
         </div>
 
-        {/* 메인 콘텐츠 영역 (위치에 따라 다른 컴포넌트 노출) */}
         {ui.location === "TOTAL" ? (
           <InventoryTotal items={inventory.items} YANGGANG_TYPES={constants.YANGGANG_종류} />
         ) : ui.location === "ARCHIVE" ? (
@@ -118,7 +114,7 @@ export default function 재고관리페이지() {
             setDeleteMode={(m) => ui.setModals((p:any)=>({...p, deleteMode:m}))} setDeleteTarget={(t) => ui.setModals((p:any)=>({...p, delete:t}))}
           />
         ) : ui.location === "CLOSING" ? (
-          null // ClosingModal에서 처리
+          null 
         ) : (
           <InventoryList 
             statusLocation={ui.location} items={inventory.items} 
@@ -135,7 +131,6 @@ export default function 재고관리페이지() {
           />
         )}
 
-        {/* 모든 모달 컴포넌트 조립 */}
         <AuthModal 
           showAuthModal={auth.showModal} loginId={auth.userId} setLoginId={auth.setUserId} 
           loginPassword={auth.password} setLoginPassword={auth.setPassword} 
@@ -167,7 +162,7 @@ export default function 재고관리페이지() {
         />
 
         <ClosingModal 
-          closingItems={workflow.closingList} closingIndex={workflow.closingIndex} handleClosingNext={workflow.saveClosing} 
+          closingItems={workflow.closingList} closingIndex={workflow.closingIndex} handleClosingNext={workflow.handleClosingStep} 
           setStatusLocation={ui.setLocation} closingDetail={ui.modalStates.closingDetail} setClosingDetail={(c) => ui.setModals((p:any)=>({...p, closingDetail:c}))}
           showNoticeInput={ui.modalStates.notice} setShowNoticeInput={(s) => ui.setModals((p:any)=>({...p, notice:s}))}
           noticeTitle={ui.modalStates.noticeTitle} setNoticeTitle={(t) => ui.setModals((p:any)=>({...p, noticeTitle:t}))}
@@ -176,7 +171,6 @@ export default function 재고관리페이지() {
           confirmUrgentProcess={inventory.confirmUrgentProcess}
         />
 
-        {/* 토스트 알림 */}
         {ui.toast && (
           <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">
             {ui.toast}

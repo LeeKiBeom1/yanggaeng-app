@@ -68,6 +68,7 @@ export function useInventory() {
   const [flow, setFlow] = useState({
     closingList: [] as any[],
     closingIndex: 0,
+    closingResults: [] as { product_name: string, quantity: number }[],
     entryProduct: "팥 양갱",
     entryQty: 0,
     entryExpiry: dateUtils.getTodayStr(),
@@ -157,12 +158,6 @@ export function useInventory() {
     refresh: refreshData,
     save: async () => {
       if (!auth.ensureAuth() || uiState.isSaving) return;
-
-      if (uiState.location === "URGENT") {
-        const diff = dateUtils.getDaysUntilExpiry(flow.entryExpiry);
-        if (diff > 14) { triggerToast("14일 이내 재고만 등록 가능합니다."); return; }
-      }
-
       setUiState(p => ({ ...p, isSaving: true }));
       try {
         if (modals.batch) {
@@ -181,7 +176,6 @@ export function useInventory() {
             quantity: flow.entryQty, 
             expiry_date: flow.entryExpiry 
           };
-
           if (uiState.location === "URGENT") table = "urgent_inventory";
           else if (uiState.location === "SET") {
             table = "set_inventory";
@@ -189,7 +183,6 @@ export function useInventory() {
           } else {
             saveData.location = uiState.location === "WAREHOUSE" ? "WAREHOUSE" : "FLOOR";
           }
-
           await service.saveStock({ table, data: saveData, userId: auth.loginUser });
         }
         triggerToast("✅ 저장 완료");
@@ -254,7 +247,6 @@ export function useInventory() {
       if (!modals.urgentProcess || 수량 <= 0) return;
       const target = modals.urgentProcess;
       const table = uiState.urgentTab === "USAGE" ? "urgent_usage" : "urgent_disposal";
-      
       await service.updateStockQty("urgent_inventory", target.id, target.quantity - 수량);
       await service.saveStock({
         table: table as any,
@@ -287,36 +279,40 @@ export function useInventory() {
     },
     startClosing: async () => {
       const 오늘 = dateUtils.getTodayStr();
-      
-      // [수정] 이미 훅이 가지고 있는 data.closing 상태를 사용하여 오늘 마감 여부 체크
       if (data.closing.some(c => c.closing_date === 오늘)) {
         triggerToast("오늘 마감은 완료되었습니다.");
         return;
       }
+      // 양갱 종류별로 마감 리스트 생성
+      const targetItems = YANGGANG_종류.map(name => ({ product_name: `${name} 양갱` }));
+      setFlow(p => ({ ...p, closingList: targetItems, closingIndex: 0, closingResults: [] })); 
+      setUiState(p => ({ ...p, location: "CLOSING" })); 
+    },
+    handleClosingStep: (inputQty: number) => {
+      const currentItem = flow.closingList[flow.closingIndex];
+      const newResults = [...flow.closingResults, { product_name: currentItem.product_name, quantity: inputQty }];
       
-      const hallItems = data.items.filter(i => i.location === "FLOOR").sort((a, b) => {
-        const idxA = YANGGANG_종류.indexOf(a.product_name.replace(" 양갱", ""));
-        const idxB = YANGGANG_종류.indexOf(b.product_name.replace(" 양갱", ""));
-        return idxA !== idxB ? idxA - idxB : a.expiry_date.localeCompare(b.expiry_date);
-      });
-
-      if (hallItems.length === 0) { 
-        triggerToast("홀에 재고가 없습니다."); 
-        setUiState(p => ({ ...p, location: "TOTAL" })); 
-      } else { 
-        setFlow(p => ({ ...p, closingList: hallItems, closingIndex: 0 })); 
-        setUiState(p => ({ ...p, location: "CLOSING" })); 
+      if (flow.closingIndex + 1 < flow.closingList.length) {
+        // 다음 품목으로
+        setFlow(p => ({ ...p, closingIndex: p.closingIndex + 1, closingResults: newResults }));
+      } else {
+        // 마지막 품목 완료 시 저장
+        workflow.saveClosing(newResults);
       }
     },
-    saveClosing: async () => {
+    saveClosing: async (results: { product_name: string, quantity: number }[]) => {
       const 오늘 = dateUtils.getTodayStr();
-      const snapshot = YANGGANG_종류.map(name => ({
-        product_name: `${name} 양갱`,
-        floor: data.items.filter(i => i.product_name === `${name} 양갱` && i.location === "FLOOR").reduce((a,c)=>a+c.quantity, 0),
-        warehouse: data.items.filter(i => i.product_name === `${name} 양갱` && i.location === "WAREHOUSE").reduce((a,c)=>a+c.quantity, 0)
+      const snapshot = results.map(res => ({
+        product_name: res.product_name,
+        floor: res.quantity,
+        warehouse: data.items
+          .filter(i => i.product_name === res.product_name && i.location === "WAREHOUSE")
+          .reduce((acc, cur) => acc + cur.quantity, 0)
       }));
       await service.saveClosingRecord({ closing_date: 오늘, stock_snapshot: snapshot, user_id: auth.loginUser });
       triggerToast("✅ 마감 기록 완료");
+      setFlow(p => ({ ...p, closingList: [], closingIndex: 0, closingResults: [] }));
+      setUiState(p => ({ ...p, location: "TOTAL" }));
       refreshData();
     }
   };
