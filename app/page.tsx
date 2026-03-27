@@ -1,270 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useInventory } from "./hooks/useInventory";
 import InventoryHeader from "./components/InventoryHeader";
 import InventoryModals from "./components/InventoryModals";
 import InventoryContent from "./components/InventoryContent";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-const YANGGANG_종류 = ["팥", "고운앙금", "통팥", "밤", "호두", "견과", "대추", "쌍화", "라즈베리", "밀크티", "곶감", "녹차", "말차", "백앙금", "흑임자", "단호박", "고구마"];
-const SET_종류 = ["4구 클래식", "4구 01", "6구 클래식", "6구 01", "6구 02", "6구 03", "12구 클래식", "12구 01", "12구 02", "12구 03", "한정 12구", "16구"];
-
 export default function 재고관리페이지() {
-  type 재고항목 = { id: string; product_name: string; quantity: number; location: "FLOOR" | "WAREHOUSE"; expiry_date: string; };
-  type 임박항목 = { id: string; product_name: string; quantity: number; expiry_date: string; };
-  type 세트항목 = { id: string; set_name: string; quantity: number; expiry_date: string; color_data: string; };
-  type 내역항목 = { id: string; product_name: string; quantity: number; expiry_date: string; created_at: string; };
-  type 마감항목 = { id: string; closing_date: string; stock_snapshot: any; user_id: string; };
-
-  const [items, setItems] = useState<재고항목[]>([]);
-  const [히스토리목록, set히스토리목록] = useState<any[]>([]);
-  const [임박재고목록, set임박재고목록] = useState<임박항목[]>([]);
-  const [세트재고목록, set세트재고목록] = useState<세트항목[]>([]);
-  const [공지목록, set공지목록] = useState<any[]>([]);
-  const [사용내역목록, set사용내역목록] = useState<내역항목[]>([]);
-  const [폐기내역목록, set폐기내역목록] = useState<내역항목[]>([]);
-  const [마감기록목록, set마감기록목록] = useState<마감항목[]>([]);
-  
-  const [현재위치, set현재위치] = useState<"FLOOR" | "WAREHOUSE" | "URGENT" | "SET" | "TOTAL" | "ARCHIVE" | "CLOSING" | "NOTICE">("FLOOR"); 
-  const [보관소탭, set보관소탭] = useState<"HISTORY" | "DAILY">("HISTORY");
-  const [임박탭, set임박탭] = useState<"STORAGE" | "USAGE" | "DISPOSAL">("STORAGE");
-  
-  const [토스트메시지, set토스트메시지] = useState(""); 
-  const [메뉴열림, set메뉴열림] = useState(false);
-  const [잠금해제됨, set잠금해제됨] = useState(false);
-  const [인증창보이기, set인증창보이기] = useState(false);
-  const [아이디, set아이디] = useState("");
-  const [비밀번호, set비밀번호] = useState("");
-  const [로그인유저, set로그인유저] = useState("");
-  const [유저권한, set유저권한] = useState<"ADMIN" | "STAFF">("STAFF");
-  const [인증중, set인증중] = useState(false);
-  const [저장중, set저장중] = useState(false);
-
-  const [삭제대상, set삭제대상] = useState<any>(null);
-  const [삭제모드, set삭제모드] = useState<any>("inventory");
-  const [수정대상, set수정대상] = useState<any>(null); 
-  const [수정수량, set수정수량] = useState(0);
-  const [이동대상, set이동대상] = useState<재고항목 | null>(null);
-  const [이동수량, set이동수량] = useState(0);
-  const [임박이동창보이기, set임박이동창보이기] = useState(false);
-  const [임박이동대상, set임박이동대상] = useState<재고항목 | null>(null);
-
-  const [입력창보이기, set입력창보이기] = useState(false);
-  const [일괄입고모드, set일괄입고모드] = useState(false);
-  const [선택품목, set선택품목] = useState("팥 양갱");
-  const [입력수량, set입력수량] = useState(0);
-  const [유통기한, set유통기한] = useState(new Date().toISOString().split('T')[0]);
-  const [세트색상, set세트색상] = useState("");
-  const [입고대기목록, set입고대기목록] = useState<any[]>([]);
-
-  const [공지입력보이기, set공지입력보이기] = useState(false);
-  const [공지제목, set공지제목] = useState("");
-  const [공지내용, set공지내용] = useState("");
-
-  const [마감대상목록, set마감대상목록] = useState<재고항목[]>([]);
-  const [현재마감인덱스, set현재마감인덱스] = useState(0);
-  const [임박처리대상, set임박처리대상] = useState<임박항목 | null>(null);
-
-  const getLocationStock = (productName: string, location: "FLOOR" | "WAREHOUSE") => 
-    items.filter(item => item.product_name === productName && item.location === location)
-         .reduce((acc, cur) => acc + cur.quantity, 0);
-
-  // [수정] 매니저 아이디를 manager01 (소문자)로 변경
-  const isAdmin = (userId: string) => userId === "manager01" || userId === "god6332";
-
-  async function 재고가져오기() {
-    try {
-      const { data: inv } = await supabase.from("inventory").select("*").order("expiry_date", { ascending: true });
-      if (inv) setItems(inv);
-      const { data: hist } = await supabase.from("history").select("*").order("ts", { ascending: false }).limit(100);
-      if (hist) set히스토리목록(hist);
-      const { data: urg } = await supabase.from("urgent_inventory").select("*").order("expiry_date", { ascending: true });
-      if (urg) set임박재고목록(urg);
-      const { data: sets } = await supabase.from("set_inventory").select("*").order("expiry_date", { ascending: true });
-      if (sets) set세트재고목록(sets);
-      const { data: notices } = await supabase.from("notices").select("*").order("created_at", { ascending: false });
-      if (notices) set공지목록(notices);
-      const { data: usage } = await supabase.from("urgent_usage").select("*").order("created_at", { ascending: false });
-      if (usage) set사용내역목록(usage);
-      const { data: disposal } = await supabase.from("urgent_disposal").select("*").order("created_at", { ascending: false });
-      if (disposal) set폐기내역목록(disposal);
-      const { data: dly } = await supabase.from("daily_closing").select("*").order("closing_date", { ascending: false });
-      if (dly) set마감기록목록(dly);
-    } catch (e) { console.error(e); }
-  }
-
-  useEffect(() => {
-    재고가져오기();
-    (async () => {
-      try {
-        const res = await fetch("/api/auth/session");
-        const data = await res.json();
-        if (data?.authenticated) {
-          set잠금해제됨(true);
-          const userId = document.cookie.split('; ').find(row => row.startsWith('yanggaeng_user_id='))?.split('=')[1] || "알 수 없음";
-          set로그인유저(userId);
-          set유저권한(isAdmin(userId) ? "ADMIN" : "STAFF");
-        } else { set인증창보이기(true); }
-      } catch { set인증창보이기(true); }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (현재위치 === "CLOSING") {
-      const hallItems = [...items].filter(i => i.location === "FLOOR").sort((a, b) => {
-        const indexA = YANGGANG_종류.indexOf(a.product_name.replace(" 양갱", ""));
-        const indexB = YANGGANG_종류.indexOf(b.product_name.replace(" 양갱", ""));
-        if (indexA !== indexB) return indexA - indexB;
-        return a.expiry_date.localeCompare(b.expiry_date);
-      });
-      set마감대상목록(hallItems);
-      set현재마감인덱스(0);
-      if (hallItems.length === 0) { 토스트알림("홀에 재고가 없습니다."); set현재위치("TOTAL"); }
-    }
-  }, [현재위치, items]);
-
-  function 토스트알림(msg: string) { set토스트메시지(msg); setTimeout(() => set토스트메시지(""), 2000); }
-  function 인증확인() { if (잠금해제됨) return true; set인증창보이기(true); 토스트알림("로그인이 필요합니다."); return false; }
-
-  async function 히스토리비우기() {
-    if (유저권한 !== "ADMIN") return;
-    await supabase.from("history").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    토스트알림("🧹 기록 삭제 완료"); 재고가져오기();
-  }
-
-  async function 로그인() {
-    set인증중(true);
-    const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: 아이디, password: 비밀번호 }) });
-    set인증중(false);
-    if (res.ok) {
-      set잠금해제됨(true); set인증창보이기(false);
-      set로그인유저(아이디);
-      set유저권한(isAdmin(아이디) ? "ADMIN" : "STAFF");
-      토스트알림("로그인 성공");
-    } else { 토스트알림("로그인 실패"); }
-  }
-
-  async function 로그아웃() { await fetch("/api/auth/logout", { method: "POST" }); location.reload(); }
-
-  async function 마감진입체크() {
-    const 오늘 = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from("daily_closing").select("id").eq("closing_date", 오늘).maybeSingle();
-    if (data) { 토스트알림("이미 오늘 마감을 완료하셨습니다."); return; }
-    set현재위치("CLOSING");
-  }
-
-  async function 재고저장() {
-    if (!인증확인() || 저장중) return;
-    if (일괄입고모드) {
-      if (입고대기목록.length === 0) { 토스트알림("항목이 없습니다."); return; }
-      set저장중(true);
-      try {
-        for (const 항목 of 입고대기목록) {
-          const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: "WAREHOUSE", product_name: 항목.product_name, expiry_date: 항목.expiry_date }).maybeSingle();
-          if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 항목.quantity }).eq("id", 기존.id);
-          else await supabase.from("inventory").insert([{ product_name: 항목.product_name, quantity: 항목.quantity, location: "WAREHOUSE", expiry_date: 항목.expiry_date }]);
-          await supabase.from("history").insert([{ ts: Date.now(), kind: "IN", product_name: 항목.product_name, expiry_date: 항목.expiry_date, location: "WAREHOUSE", delta: 항목.quantity, user_id: 로그인유저 }]);
-        }
-        토스트알림("✅ 저장 완료"); set입고대기목록([]); set입력창보이기(false);
-      } catch (e) { console.error(e); } finally { set저장중(false); 재고가져오기(); }
-      return;
-    }
-    if (입력수량 < 0) return;
-    set저장중(true);
-    try {
-      if (현재위치 === "URGENT") {
-        const days = Math.ceil((new Date(유통기한).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
-        if (days > 14) { 토스트알림("올바르지 않은 유통기한입니다."); set저장중(false); return; }
-        await supabase.from("urgent_inventory").insert([{ product_name: 선택품목, quantity: 입력수량, expiry_date: 유통기한 }]);
-      } else if (현재위치 === "SET") {
-        const { data: 기존 } = await supabase.from("set_inventory").select("*").match({ set_name: 선택품목, expiry_date: 유통기한, color_data: 세트색상 }).maybeSingle();
-        if (기존) await supabase.from("set_inventory").update({ quantity: 기존.quantity + 입력수량 }).eq("id", 기존.id);
-        else await supabase.from("set_inventory").insert([{ set_name: 선택품목, quantity: 입력수량, expiry_date: 유통기한, color_data: 세트색상 }]);
-      } else {
-        const 대상위치 = 현재위치 === "WAREHOUSE" ? "WAREHOUSE" : "FLOOR";
-        const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: 대상위치, product_name: 선택품목, expiry_date: 유통기한 }).maybeSingle();
-        if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 입력수량 }).eq("id", 기존.id);
-        else await supabase.from("inventory").insert([{ product_name: 선택품목, quantity: 입력수량, location: 대상위치, expiry_date: 유통기한 }]);
-        if (대상위치 === "WAREHOUSE") await supabase.from("history").insert([{ ts: Date.now(), kind: "IN", product_name: 선택품목, expiry_date: 유통기한, location: "WAREHOUSE", delta: 입력수량, user_id: 로그인유저 }]);
-      }
-      토스트알림("✅ 저장 완료"); set입력창보이기(false); 재고가져오기();
-    } catch (e) { console.error(e); } finally { set저장중(false); }
-  }
-
-  async function 임박처리확정(수량: number) {
-    if (!임박처리대상 || 수량 <= 0) return;
-    const 항목 = 임박처리대상;
-    const 테이블 = 임박탭 === "USAGE" ? "urgent_usage" : "urgent_disposal";
-    try {
-      if (항목.quantity <= 수량) await supabase.from("urgent_inventory").delete().eq("id", 항목.id);
-      else await supabase.from("urgent_inventory").update({ quantity: 항목.quantity - 수량 }).eq("id", 항목.id);
-      await supabase.from(테이블).insert([{ product_name: 항목.product_name, quantity: 수량, expiry_date: 항목.expiry_date }]);
-      토스트알림("✅ 등록 완료"); set임박처리대상(null); 재고가져오기();
-    } catch (e) { console.error(e); }
-  }
-
-  async function 공지저장() {
-    if (유저권한 !== "ADMIN" || !공지제목) return;
-    await supabase.from("notices").insert([{ title: 공지제목, content: 공지내용 }]);
-    토스트알림("📢 공지 완료"); set공지입력보이기(false); set공지제목(""); set공지내용(""); 재고가져오기();
-  }
-
-  async function 수정확정() {
-    if (!인증확인() || !수정대상) return;
-    const 이전 = 수정대상.quantity; const 이후 = 수정수량;
-    const 테이블 = 현재위치 === "URGENT" ? "urgent_inventory" : "inventory";
-    if (이후 <= 0) {
-      await supabase.from(테이블).delete().eq("id", 수정대상.id);
-      if (수정대상.location === "WAREHOUSE") await supabase.from("history").insert([{ ts: Date.now(), kind: "OUT", product_name: 수정대상.product_name, expiry_date: 수정대상.expiry_date, location: "WAREHOUSE", delta: -이전, user_id: 로그인유저 }]);
-    } else { await supabase.from(테이블).update({ quantity: 이후 }).eq("id", 수정대상.id); }
-    set수정대상(null); 토스트알림("📝 수정 완료"); 재고가져오기();
-  }
-
-  async function 재고이동() {
-    if (!인증확인() || !이동대상 || 이동수량 <= 0) return;
-    const 새위치 = 이동대상.location === "FLOOR" ? "WAREHOUSE" : "FLOOR";
-    const { data: 기존 } = await supabase.from("inventory").select("*").match({ location: 새위치, product_name: 이동대상.product_name, expiry_date: 이동대상.expiry_date }).maybeSingle();
-    if (기존) await supabase.from("inventory").update({ quantity: 기존.quantity + 이동수량 }).eq("id", 기존.id);
-    else await supabase.from("inventory").insert([{ product_name: 이동대상.product_name, quantity: 이동수량, location: 새위치, expiry_date: 이동대상.expiry_date }]);
-    if (이동수량 >= 이동대상.quantity) await supabase.from("inventory").delete().eq("id", 이동대상.id);
-    else await supabase.from("inventory").update({ quantity: 이동대상.quantity - 이동수량 }).eq("id", 이동대상.id);
-    if (이동대상.location === "WAREHOUSE") await supabase.from("history").insert([{ ts: Date.now(), kind: "MOVE", product_name: 이동대상.product_name, expiry_date: 이동대상.expiry_date, location: "WAREHOUSE", delta: -이동수량, user_id: 로그인유저 }]);
-    set이동대상(null); 토스트알림("🚚 이동 완료"); 재고가져오기();
-  }
-
-  async function 임박재고이동확정() {
-    if (!임박이동대상) return;
-    const days = Math.ceil((new Date(임박이동대상.expiry_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
-    if (days > 14) { 토스트알림("올바르지 않은 유통기한입니다."); set임박이동창보이기(false); return; }
-    await supabase.from("urgent_inventory").insert([{ product_name: 임박이동대상.product_name, quantity: 임박이동대상.quantity, expiry_date: 임박이동대상.expiry_date }]);
-    await supabase.from("inventory").delete().eq("id", 임박이동대상.id);
-    set임박이동창보이기(false); set임박이동대상(null); 토스트알림("⏰ 임박 전송"); 재고가져오기();
-  }
-
-  async function 마감데이터저장(snapshot: any) {
-    const 오늘 = new Date().toISOString().split('T')[0];
-    const { error } = await supabase.from("daily_closing").insert([{ closing_date: 오늘, stock_snapshot: snapshot, user_id: 로그인유저 }]);
-    if (!error) { 토스트알림("✅ 마감 기록 완료"); 재고가져오기(); }
-  }
-
-  async function 삭제실행() {
-    if (!인증확인() || !삭제대상) return;
-    if (삭제모드 === "urgent") await supabase.from("urgent_inventory").delete().eq("id", 삭제대상.id);
-    else if (삭제모드 === "usage") await supabase.from("urgent_usage").delete().eq("id", 삭제대상.id);
-    else if (삭제모드 === "disposal") await supabase.from("urgent_disposal").delete().eq("id", 삭제대상.id);
-    else if (삭제모드 === "set") await supabase.from("set_inventory").delete().eq("id", 삭제대상.id);
-    else if (삭제모드 === "notice") await supabase.from("notices").delete().eq("id", 삭제대상.id);
-    else if (삭제모드 === "daily") await supabase.from("daily_closing").delete().eq("id", 삭제대상.id);
-    else {
-      await supabase.from("inventory").delete().eq("id", 삭제대상.id);
-      if (삭제대상.location === "WAREHOUSE") await supabase.from("history").insert([{ ts: Date.now(), kind: "OUT", product_name: 삭제대상.product_name, expiry_date: 삭제대상.expiry_date, location: "WAREHOUSE", delta: -삭제대상.quantity, user_id: 로그인유저 }]);
-    }
-    set삭제대상(null); 토스트알림("🗑️ 삭제 완료"); 재고가져오기();
-  }
+  const { auth, inventory, workflow, ui, constants } = useInventory();
 
   return (
     <div className="w-full min-h-screen bg-[#FDFBF7] font-sans text-[#3E2723] overflow-x-hidden">
@@ -274,48 +15,76 @@ export default function 재고관리페이지() {
           input[type=number] { -moz-appearance: textfield; }
         `}</style>
 
+        {/* 1. 상단 헤더 */}
         <InventoryHeader 
-          statusLocation={현재위치} setStatusLocation={set현재위치} archiveTab={보관소탭} setArchiveTab={set보관소탭} urgentTab={임박탭} setUrgentTab={set임박탭}
-          setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} checkClosing={마감진입체크} setShowAuthModal={set인증창보이기}
+          statusLocation={ui.location} setStatusLocation={ui.setLocation} 
+          archiveTab={ui.archiveTab} setArchiveTab={ui.setArchiveTab} 
+          urgentTab={ui.urgentTab} setUrgentTab={ui.setUrgentTab}
+          setIsMenuOpen={ui.setIsMenuOpen} isMenuOpen={ui.isMenuOpen} 
+          isUnlocked={auth.isUnlocked} signOut={auth.logout} 
+          checkClosing={workflow.startClosing} setShowAuthModal={auth.openLogin}
         />
 
+        {/* 2. 상단 액션 버튼 영역 */}
         <div className="flex justify-between items-end mb-4 px-1 h-[42px]">
-          {현재위치 !== "TOTAL" && 현재위치 !== "ARCHIVE" && 현재위치 !== "CLOSING" && 현재위치 !== "NOTICE" && (
+          {!["TOTAL", "ARCHIVE", "CLOSING", "NOTICE"].includes(ui.location) && (
             <div className="flex gap-2 h-full items-center">
-              {현재위치 === "URGENT" ? (
-                임박탭 !== "STORAGE" && (<button onClick={() => { if (인증확인()) set입력창보이기(true); }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ {임박탭 === "USAGE" ? "사용" : "폐기"} 등록</button>)
-              ) : (
-                <>
-                  <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목(현재위치 === "SET" ? "4구 클래식" : "팥 양갱"); set일괄입고모드(false); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 재고 추가</button>
-                  {현재위치 === "WAREHOUSE" && (<button onClick={() => { if (인증확인()) { set입력수량(40); set일괄입고모드(true); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>)}
-                </>
+              <button onClick={() => ui.openInput(false)} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">
+                + {ui.location === "URGENT" ? (ui.urgentTab === "USAGE" ? "사용" : "폐기") : "재고"} 추가
+              </button>
+              {ui.location === "WAREHOUSE" && (
+                <button onClick={() => ui.openInput(true)} className="h-full px-5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>
               )}
             </div>
           )}
-          {현재위치 === "NOTICE" && 유저권한 === "ADMIN" && (
-            <button onClick={() => set공지입력보이기(true)} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 공지 작성</button>
+          {ui.location === "NOTICE" && auth.userRole === "ADMIN" && (
+            <button onClick={() => ui.setModals((p:any)=>({...p, notice:true}))} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 공지 작성</button>
           )}
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{현재위치}</span>
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{ui.location}</span>
         </div>
 
+        {/* 3. 본문 콘텐츠 리스트 */}
         <InventoryContent 
-          statusLocation={현재위치} archiveTab={보관소탭} urgentTab={임박탭} userRole={유저권한} historyEvents={히스토리목록} clearHistory={히스토리비우기} items={items} urgentItems={임박재고목록} setInventoryItems={세트재고목록} noticeItems={공지목록} usageItems={사용내역목록} disposalItems={폐기내역목록} closingRecords={마감기록목록} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류} 
-          getLocationStock={getLocationStock} getDaysUntilExpiry={(d:any)=>Math.ceil((new Date(d).setHours(0,0,0,0)-new Date().setHours(0,0,0,0))/86400000)} ensureAuthenticated={인증확인} setEditTarget={(t:any)=>{set수정대상(t); set수정수량(t.quantity);}} setMoveTarget={set이동대상} setMoveQty={set이동수량} setDeleteMode={set삭제모드} setDeleteTarget={set삭제대상} setShowMoveUrgentModal={set임박이동창보이기} setMoveUrgentTarget={set임박이동대상} fmtDate={(iso:any)=>iso.slice(5).replace("-","/")}
+          statusLocation={ui.location} archiveTab={ui.archiveTab} urgentTab={ui.urgentTab} userRole={auth.userRole} 
+          historyEvents={inventory.history} items={inventory.items} urgentItems={inventory.urgent} 
+          setInventoryItems={inventory.sets} noticeItems={inventory.notices} usageItems={inventory.usage} 
+          disposalItems={inventory.disposal} closingRecords={inventory.closing}
+          YANGGANG_TYPES={constants.YANGGANG_종류} SET_TYPES={constants.SET_종류} 
+          getLocationStock={inventory.getLocationStock} ensureAuthenticated={auth.ensureAuth}
+          clearHistory={inventory.clearHistory} 
+          getDaysUntilExpiry={(d:any)=>Math.ceil((new Date(d).setHours(0,0,0,0)-new Date().setHours(0,0,0,0))/86400000)}
+          setEditTarget={(t:any)=>ui.setModals((p:any)=>({...p, edit:t, editQty:t.quantity}))} 
+          setMoveTarget={(t:any)=>ui.setModals((p:any)=>({...p, move:t, moveQty:t.quantity}))} 
+          setMoveQty={(q:number)=>ui.setModals((p:any)=>({...p, moveQty:q}))} 
+          setDeleteMode={(m:string)=>ui.setModals((p:any)=>({...p, deleteMode:m}))} 
+          setDeleteTarget={(t:any)=>ui.setModals((p:any)=>({...p, delete:t}))} 
+          setShowMoveUrgentModal={(s:boolean)=>ui.setModals((p:any)=>({...p, moveUrgent:s}))} 
+          setMoveUrgentTarget={(t:any)=>ui.setModals((p:any)=>({...p, moveUrgentTarget:t}))} 
+          fmtDate={(iso:any)=>iso.slice(5).replace("-","/")}
         />
 
+        {/* 4. 각종 작업용 모달들 */}
         <InventoryModals 
-          showInputModal={입력창보이기} setShowInputModal={set입력창보이기} isBatchMode={일괄입고모드} statusLocation={현재위치} urgentTab={임박탭} urgentItems={임박재고목록} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류} selectedProduct={선택품목} setSelectedProduct={set선택품목} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} setMemo={세트색상} setSetMemo={set세트색상} saveInventory={재고저장} isSaving={저장중} pendingList={입고대기목록} setPendingList={set입고대기목록}
-          showAuthModal={인증창보이기} loginId={아이디} setLoginId={set아이디} loginPassword={비밀번호} setLoginPassword={set비밀번호} isAuthLoading={인증중} signIn={로그인}
-          editTarget={수정대상} setEditTarget={set수정대상} editQty={수정수량} setEditQty={set수정수량} confirmEdit={수정확정}
-          moveTarget={이동대상} setMoveTarget={set이동대상} moveQty={이동수량} setMoveQty={set이동수량} moveInventory={재고이동}
-          deleteTarget={삭제대상} setDeleteTarget={set삭제대상} setDeleteMode={set삭제모드} execDelete={삭제실행}
-          showMoveUrgentModal={임박이동창보이기} setShowMoveUrgentModal={set임박이동창보이기} moveUrgentTarget={임박이동대상} confirmMoveToUrgent={임박재고이동확정}
-          closingItems={마감대상목록} closingIndex={현재마감인덱스} setClosingIndex={set현재마감인덱스} setStatusLocation={set현재위치} triggerToast={토스트알림} refreshData={재고가져오기} saveClosing={마감데이터저장}
-          showNoticeInput={공지입력보이기} setShowNoticeInput={set공지입력보이기} noticeTitle={공지제목} setNoticeTitle={set공지제목} noticeContent={공지내용} setNoticeContent={set공지내용} saveNotice={공지저장}
-          urgentProcessTarget={임박처리대상} setUrgentProcessTarget={set임박처리대상} confirmUrgentProcess={임박처리확정}
+          showInputModal={ui.modalStates.input} setShowInputModal={(s:any)=>ui.setModals((p:any)=>({...p, input:s}))} 
+          isBatchMode={ui.modalStates.batch} statusLocation={ui.location} urgentTab={ui.urgentTab} urgentItems={inventory.urgent} 
+          YANGGANG_TYPES={constants.YANGGANG_종류} SET_TYPES={constants.SET_종류} 
+          selectedProduct={workflow.entryProduct} setSelectedProduct={(p:any)=>workflow.setEntry("entryProduct", p)} 
+          expiryDate={workflow.entryExpiry} setExpiryDate={(e:any)=>workflow.setEntry("entryExpiry", e)} 
+          quantity={workflow.entryQty} setQuantity={(q:any)=>workflow.setEntry("entryQty", q)} 
+          setMemo={workflow.entrySetMemo} setSetMemo={(m:any)=>workflow.setEntry("entrySetMemo", m)} 
+          saveInventory={inventory.save} isSaving={ui.isSaving} pendingList={workflow.pendingList} setPendingList={(l:any)=>workflow.setEntry("pendingList", l)}
+          showAuthModal={auth.showModal} loginId={auth.userId} setLoginId={(id:any)=>auth.setUserId(id)} loginPassword={auth.password} setLoginPassword={(pw:any)=>auth.setPassword(pw)} isAuthLoading={auth.isLoading} signIn={auth.login}
+          editTarget={ui.modalStates.edit} setEditTarget={(t:any)=>ui.setModals((p:any)=>({...p, edit:t}))} editQty={ui.modalStates.editQty} setEditQty={(q:any)=>ui.setModals((p:any)=>({...p, editQty:q}))} confirmEdit={inventory.confirmEdit}
+          moveTarget={ui.modalStates.move} setMoveTarget={(t:any)=>ui.setModals((p:any)=>({...p, move:t}))} moveQty={ui.modalStates.moveQty} setMoveQty={(q:any)=>ui.setModals((p:any)=>({...p, moveQty:q}))} moveInventory={inventory.move}
+          deleteTarget={ui.modalStates.delete} setDeleteTarget={(t:any)=>ui.setModals((p:any)=>({...p, delete:t}))} setDeleteMode={(m:any)=>ui.setModals((p:any)=>({...p, deleteMode:m}))} execDelete={inventory.delete}
+          showMoveUrgentModal={ui.modalStates.moveUrgent} setShowMoveUrgentModal={(s:any)=>ui.setModals((p:any)=>({...p, moveUrgent:s}))} moveUrgentTarget={ui.modalStates.moveUrgentTarget} confirmMoveToUrgent={inventory.confirmMoveToUrgent}
+          closingItems={workflow.closingList} closingIndex={workflow.closingIndex} setClosingIndex={(i:any)=>workflow.setEntry("closingIndex", i)} setStatusLocation={ui.setLocation} triggerToast={ui.triggerToast} refreshData={inventory.refresh} saveClosing={workflow.saveClosing}
+          showNoticeInput={ui.modalStates.notice} setShowNoticeInput={(s:any)=>ui.setModals((p:any)=>({...p, notice:s}))} noticeTitle={ui.modalStates.noticeTitle} setNoticeTitle={(t:any)=>ui.setModals((p:any)=>({...p, noticeTitle:t}))} noticeContent={ui.modalStates.noticeContent} setNoticeContent={(c:any)=>ui.setModals((p:any)=>({...p, noticeContent:c}))} saveNotice={inventory.saveNotice}
+          urgentProcessTarget={ui.modalStates.urgentProcess} setUrgentProcessTarget={(t:any)=>ui.setModals((p:any)=>({...p, urgentProcess:t}))} confirmUrgentProcess={inventory.confirmUrgentProcess}
         />
 
-        {토스트메시지 && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{토스트메시지}</div>}
+        {/* 5. 하단 알림 피드백 */}
+        {ui.toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{ui.toast}</div>}
       </div>
     </div>
   );
