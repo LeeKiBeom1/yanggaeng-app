@@ -1,25 +1,29 @@
 "use client";
-export default function InventoryContent({ statusLocation, historyEvents, clearHistory, items, urgentItems, setInventoryItems, noticeItems, YANGGANG_TYPES, SET_TYPES, getLocationStock, getDaysUntilExpiry, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget, fmtDate }: any) {
+
+export default function InventoryContent({ statusLocation, urgentTab, historyEvents, clearHistory, items, urgentItems, setInventoryItems, noticeItems, usageItems, disposalItems, YANGGANG_TYPES, SET_TYPES, getLocationStock, getDaysUntilExpiry, ensureAuthenticated, setEditTarget, setEditQty, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget, fmtDate }: any) {
 
   if (statusLocation === "HISTORY") {
+    // 히스토리 내 임박 내역 그룹화 로직 생략(공통 렌더링 사용)
     return (
-      <div className="w-full space-y-3 mb-12">
-        <div className="flex justify-between items-center px-1 mb-2">
-          <h3 className="text-sm font-bold text-[#5D2E2E]">최근 입출고 기록</h3>
-          <button onClick={clearHistory} className="text-[10px] font-bold text-[#A68966]">기록 비우기</button>
-        </div>
-        <div className="bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden divide-y divide-[#F5F0E9]">
-          {historyEvents.map((ev: any) => (
-            <div key={ev.id} className="px-4 py-4 flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-[11px] border ${ev.kind === "MOVE" ? "bg-[#FFF9F0] text-[#A68966] border-[#F5E9D1]" : ev.delta > 0 ? "bg-[#F0F7F4] text-[#198754] border-[#D1E7DD]" : "bg-[#FFF5F5] text-[#DC3545] border-[#F8D7DA]"}`}>{ev.kind === "MOVE" ? "이동" : ev.delta > 0 ? "입고" : "출고"}</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-[14px] text-[#3E2723] truncate">{ev.product_name}</div>
-                <div className="text-[11px] text-[#A68966]">{fmtDate(ev.expiry_date)} · 창고 {ev.kind === "MOVE" && "→ 홀"}</div>
+      <div className="w-full space-y-6 mb-12">
+        <div className="bg-white rounded-2xl border border-[#EFE9E1] overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-[#F5F0E9] flex justify-between items-center bg-[#F9F5F0]">
+            <h3 className="text-sm font-bold text-[#5D2E2E]">최근 입출고 기록</h3>
+            <button onClick={clearHistory} className="text-[10px] font-bold text-[#A68966]">기록 비우기</button>
+          </div>
+          <div className="divide-y divide-[#F5F0E9]">
+            {historyEvents.map((ev: any) => (
+              <div key={ev.id} className="px-4 py-4 flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-[11px] border ${ev.kind === "MOVE" ? "bg-[#FFF9F0] text-[#A68966]" : ev.delta > 0 ? "bg-[#F0F7F4] text-[#198754]" : "bg-[#FFF5F5] text-[#DC3545]"}`}>{ev.kind === "MOVE" ? "이동" : ev.delta > 0 ? "입고" : "출고"}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[14px] text-[#3E2723] truncate">{ev.product_name}</div>
+                  <div className="text-[11px] text-[#A68966]">{fmtDate(ev.expiry_date)} · 창고 {ev.kind === "MOVE" && "→ 홀"}</div>
+                </div>
+                <div className={`font-bold text-sm ${ev.delta > 0 && ev.kind !== "MOVE" ? "text-[#198754]" : "text-[#DC3545]"}`}>{ev.delta > 0 && ev.kind !== "MOVE" ? "+" : ""}{ev.delta}개</div>
               </div>
-              <div className={`font-bold text-sm ${ev.delta > 0 && ev.kind !== "MOVE" ? "text-[#198754]" : "text-[#DC3545]"}`}>{ev.delta > 0 && ev.kind !== "MOVE" ? "+" : ""}{ev.delta}개</div>
-            </div>
-          ))}
-          {historyEvents.length === 0 && <div className="py-16 text-center text-sm text-[#A68966]">기록 없음</div>}
+            ))}
+            {historyEvents.length === 0 && <div className="py-16 text-center text-sm text-[#A68966]">기록 없음</div>}
+          </div>
         </div>
       </div>
     );
@@ -67,7 +71,37 @@ export default function InventoryContent({ statusLocation, historyEvents, clearH
             <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode("notice"); setDeleteTarget(n); } }} className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center text-[#DC3545] opacity-0 group-hover:opacity-100 transition-opacity">×</button>
           </div>
         ))}
-        {noticeItems.length === 0 && <div className="py-20 text-center text-sm text-[#A68966] font-medium italic">등록된 공지사항이 없습니다.</div>}
+      </div>
+    );
+  }
+
+  // 임박 사용/폐기 내역 렌더링
+  if (statusLocation === "URGENT" && (urgentTab === "USAGE" || urgentTab === "DISPOSAL")) {
+    const dataList = urgentTab === "USAGE" ? usageItems : disposalItems;
+    const title = urgentTab === "USAGE" ? "사용 내역" : "폐기 내역";
+    const mode = urgentTab === "USAGE" ? "usage" : "disposal";
+
+    return (
+      <div className="w-full space-y-4 mb-12">
+        <h3 className="px-1 text-sm font-bold text-[#5D2E2E]">{title} (최근 30일)</h3>
+        {dataList.length > 0 ? (
+          <div className="bg-white rounded-2xl border border-[#EFE9E1] divide-y">
+            {dataList.map((item: any) => (
+              <div key={item.id} className="px-4 py-4 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-[14px] text-[#3E2723]">{item.product_name}</div>
+                  <div className="text-[11px] text-[#A68966]">{fmtDate(item.expiry_date)} 등록</div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-black text-[#5D2E2E]">{item.quantity}개</span>
+                  <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode(mode); setDeleteTarget(item); } }} className="text-[#DC3545] font-bold px-2">×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-20 text-center text-sm text-[#A68966] italic">최근 {title}이 없습니다.</div>
+        )}
       </div>
     );
   }
@@ -79,10 +113,11 @@ export default function InventoryContent({ statusLocation, historyEvents, clearH
     <div className="w-full space-y-4 mb-12">
       {currentTypes.map((name: string) => {
         const pName = statusLocation === "SET" ? name : `${name} 양갱`;
-        let list = [];
-        if (statusLocation === "SET") list = setInventoryItems.filter((i: any) => i.set_name === pName);
-        else if (statusLocation === "URGENT") list = urgentItems.filter((i: any) => i.product_name === pName);
-        else list = items.filter((i: any) => i.product_name === pName && i.location === statusLocation);
+        let list = (statusLocation === "SET") 
+          ? setInventoryItems.filter((i: any) => i.set_name === pName)
+          : (statusLocation === "URGENT")
+            ? urgentItems.filter((i: any) => i.product_name === pName)
+            : items.filter((i: any) => i.product_name === pName && i.location === statusLocation);
         
         return (
           <div key={name} className={`bg-white rounded-[24px] border border-[#EFE9E1] shadow-sm overflow-hidden ${list.length === 0 ? "opacity-60" : ""}`}>

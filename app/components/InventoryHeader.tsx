@@ -1,14 +1,35 @@
 "use client";
-export default function InventoryHeader({ statusLocation, setStatusLocation, setIsMenuOpen, isMenuOpen, isUnlocked, signOut, setShowAuthModal }: any) {
+export default function InventoryHeader({ statusLocation, setStatusLocation, urgentTab, setUrgentTab, setIsMenuOpen, isMenuOpen, isUnlocked, signOut, setShowAuthModal }: any) {
   return (
     <>
       <div className="flex items-center justify-between mb-8 max-w-md mx-auto gap-3">
+        {/* 임박 재고 화면일 때만 다른 버튼 구성 */}
         <div className="flex flex-1 gap-1 bg-white p-1.5 rounded-2xl border border-[#EFE9E1] shadow-sm h-[56px] items-center">
-          {["FLOOR", "WAREHOUSE"].map((loc) => (
-            <button key={loc} onClick={() => setStatusLocation(loc)} className={`flex-1 h-full rounded-xl text-sm font-bold transition-all min-w-[80px] ${statusLocation === loc ? "bg-[#5D2E2E] text-white shadow-md" : "text-[#A68966] hover:bg-[#FDFBF7]"}`}>
-              {loc === "FLOOR" ? "홀" : "창고"}
-            </button>
-          ))}
+          {statusLocation === "URGENT" ? (
+            <>
+              {["STORAGE", "USAGE", "DISPOSAL"].map((tab) => (
+                <button 
+                  key={tab} 
+                  onClick={() => setUrgentTab(tab)} 
+                  className={`flex-1 h-full rounded-xl text-[11px] font-bold transition-all ${urgentTab === tab ? "bg-[#5D2E2E] text-white shadow-md" : "text-[#A68966] hover:bg-[#FDFBF7]"}`}
+                >
+                  {tab === "STORAGE" ? "보관 재고" : tab === "USAGE" ? "사용 내역" : "폐기 내역"}
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              {["FLOOR", "WAREHOUSE"].map((loc) => (
+                <button 
+                  key={loc} 
+                  onClick={() => setStatusLocation(loc)} 
+                  className={`flex-1 h-full rounded-xl text-sm font-bold transition-all min-w-[80px] ${statusLocation === loc ? "bg-[#5D2E2E] text-white shadow-md" : "text-[#A68966] hover:bg-[#FDFBF7]"}`}
+                >
+                  {loc === "FLOOR" ? "홀" : "창고"}
+                </button>
+              ))}
+            </>
+          )}
         </div>
         <button onClick={() => setIsMenuOpen(true)} className="w-14 h-14 bg-white rounded-2xl border border-[#EFE9E1] flex flex-col items-center justify-center gap-1.5 active:scale-95 shadow-sm shrink-0">
           <div className="w-6 h-[2.5px] bg-[#3E2723] rounded-full"></div>
@@ -23,7 +44,7 @@ export default function InventoryHeader({ statusLocation, setStatusLocation, set
               <div className="p-2">
                 <button onClick={() => { setStatusLocation("TOTAL"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">재고 합계</button>
                 <button onClick={() => { setStatusLocation("CLOSING"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">재고 마감하기</button>
-                <button onClick={() => { setStatusLocation("URGENT"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">임박 재고</button>
+                <button onClick={() => { setStatusLocation("URGENT"); setUrgentTab("STORAGE"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">임박 재고</button>
                 <button onClick={() => { setStatusLocation("SET"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">세트 재고</button>
                 <button onClick={() => { setStatusLocation("NOTICE"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">공지사항</button>
                 <button onClick={() => { setStatusLocation("HISTORY"); setIsMenuOpen(false); }} className="w-full text-left px-4 py-3 rounded-2xl hover:bg-black/5 font-bold text-[14px] text-[#3E2723]">입출고 기록</button>

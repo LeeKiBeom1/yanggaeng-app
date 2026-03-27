@@ -1,11 +1,13 @@
 "use client";
+import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 export default function InventoryModals(props: any) {
-  const { showInputModal, setShowInputModal, isBatchMode, statusLocation, YANGGANG_TYPES, SET_TYPES, selectedProduct, setSelectedProduct, expiryDate, setExpiryDate, quantity, setQuantity, setMemo, setSetMemo, saveInventory, isSaving, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData, showNoticeInput, setShowNoticeInput, noticeTitle, setNoticeTitle, noticeContent, setNoticeContent, saveNotice, pendingList, setPendingList } = props;
+  const { showInputModal, setShowInputModal, isBatchMode, statusLocation, urgentTab, urgentItems, YANGGANG_TYPES, SET_TYPES, selectedProduct, setSelectedProduct, expiryDate, setExpiryDate, quantity, setQuantity, setMemo, setSetMemo, saveInventory, isSaving, showAuthModal, loginId, setLoginId, loginPassword, setLoginPassword, isAuthLoading, signIn, editTarget, setEditTarget, editQty, setEditQty, confirmEdit, moveTarget, setMoveTarget, moveQty, setMoveQty, moveInventory, deleteTarget, setDeleteTarget, setDeleteMode, execDelete, showMoveUrgentModal, setShowMoveUrgentModal, moveUrgentTarget, confirmMoveToUrgent, closingItems, closingIndex, setClosingIndex, setStatusLocation, triggerToast, refreshData, showNoticeInput, setShowNoticeInput, noticeTitle, setNoticeTitle, noticeContent, setNoticeContent, saveNotice, pendingList, setPendingList, urgentProcessTarget, setUrgentProcessTarget, confirmUrgentProcess } = props;
 
   const currentTypes = statusLocation === "SET" ? SET_TYPES : YANGGANG_TYPES;
+  const [procQty, setProcQty] = useState(0);
 
   const handleClosingNext = async (val: number) => {
     const item = closingItems[closingIndex];
@@ -14,81 +16,85 @@ export default function InventoryModals(props: any) {
     else { triggerToast("✅ 마감 정산 완료"); refreshData(); setStatusLocation("TOTAL"); }
   };
 
-  // 대기 목록에 추가
   const addToPending = () => {
     if (quantity <= 0) { triggerToast("수량을 입력해주세요."); return; }
     setPendingList([...pendingList, { product_name: selectedProduct, quantity: quantity, expiry_date: expiryDate }]);
-    setQuantity(40); // 수량 초기화 (기본값 40)
+    setQuantity(40);
   };
 
   return (
     <>
-      <style jsx global>{`
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-      `}</style>
-
+      {/* 재고 추가 / 일괄 입고 / 임박 처리 선택 모달 */}
       {showInputModal && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowInputModal(false)}>
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">{statusLocation === "SET" ? "세트 재고 추가" : isBatchMode ? "일괄 입고" : "재고 추가"}</h2>
+            <h2 className="text-xl mb-6 text-center font-bold text-[#5D2E2E]">
+              {statusLocation === "URGENT" ? `${urgentTab === "USAGE" ? "사용" : "폐기"} 항목 선택` : statusLocation === "SET" ? "세트 재고 추가" : isBatchMode ? "일괄 입고" : "재고 추가"}
+            </h2>
             
-            {/* 품목 선택 */}
-            <div className="grid grid-cols-4 gap-2 mb-6 max-h-40 overflow-y-auto p-2 border border-[#F5F0E9] rounded-2xl bg-white text-center shadow-inner">
-              {currentTypes.map((p: any) => {
-                const pName = statusLocation === "SET" ? p : `${p} 양갱`;
-                const isSelected = selectedProduct === pName;
-                return (<button key={p} onClick={() => setSelectedProduct(pName)} className={`py-2 text-[10px] rounded-xl border font-bold transition-all ${isSelected ? "bg-[#5D2E2E] text-white border-[#5D2E2E]" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{p}</button>);
-              })}
-            </div>
-
-            {/* 날짜 선택 (너비 조정 및 확인 단계 제거) */}
-            <div className="px-0.5">
-              <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none box-border" />
-            </div>
-            
-            {statusLocation === "SET" && (
-              <div className="flex gap-2 mb-4">
-                {["Red", "Navy", "Pink"].map((color) => (
-                  <button key={color} onClick={() => setSetMemo(color)} className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${setMemo === color ? "bg-[#5D2E2E] text-white" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{color}</button>
-                ))}
+            {statusLocation === "URGENT" ? (
+              // 임박 사용/폐기 시: 현재 임박 재고 목록에서 선택
+              <div className="space-y-2 mb-6 max-h-60 overflow-y-auto p-2 border rounded-2xl bg-white shadow-inner">
+                {urgentItems.length > 0 ? urgentItems.map((item: any) => (
+                  <button key={item.id} onClick={() => { setUrgentProcessTarget(item); setProcQty(item.quantity); setShowInputModal(false); }} className="w-full p-4 border rounded-xl flex justify-between items-center text-left hover:bg-[#FDFBF7]">
+                    <div className="font-bold text-sm">{item.product_name} <span className="text-[10px] text-[#A68966]">({item.expiry_date.slice(5)})</span></div>
+                    <div className="font-black text-[#5D2E2E]">{item.quantity}개</div>
+                  </button>
+                )) : <div className="py-10 text-center text-xs text-gray-400">보관된 임박 재고가 없습니다.</div>}
               </div>
-            )}
-
-            {/* 수량 조절 */}
-            <div className="flex gap-2 mb-6"><button onClick={() => setQuantity(quantity + 10)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+10</button><button onClick={() => setQuantity(quantity + 40)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+40</button><button onClick={() => setQuantity(0)} className="flex-1 py-3 bg-[#FFF5F5] border border-[#FFE3E3] rounded-xl text-[11px] font-bold text-[#DC3545]">초기화</button></div>
-            <div className="flex items-center justify-center gap-8 mb-8"><button onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={quantity === 0 ? "" : quantity} placeholder="0" onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none placeholder:text-[#EFE9E1]" style={{appearance: 'textfield'}} /><button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
-            
-            {/* 입고 대기 목록 (일괄 입고 전용) */}
-            {isBatchMode && (
-              <div className="mb-6 p-3 bg-[#F9F5F0] rounded-2xl border border-[#F5F0E9] max-h-32 overflow-y-auto">
-                <p className="text-[10px] font-bold text-[#A68966] mb-2 uppercase">입고 대기 목록 ({pendingList.length})</p>
-                {pendingList.map((item: any, idx: number) => (
-                  <div key={idx} className="flex justify-between text-[11px] font-bold text-[#3E2723] mb-1 pb-1 border-b border-white/50">
-                    <span>{item.product_name.replace(" 양갱", "")} ({item.expiry_date.slice(5)})</span>
-                    <span>{item.quantity}개</span>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 gap-2 mb-6 max-h-40 overflow-y-auto p-2 border border-[#F5F0E9] rounded-2xl bg-white text-center shadow-inner">
+                  {currentTypes.map((p: any) => {
+                    const pName = statusLocation === "SET" ? p : `${p} 양갱`;
+                    const isSelected = selectedProduct === pName;
+                    return (<button key={p} onClick={() => setSelectedProduct(pName)} className={`py-2 text-[10px] rounded-xl border font-bold transition-all ${isSelected ? "bg-[#5D2E2E] text-white border-[#5D2E2E]" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{p}</button>);
+                  })}
+                </div>
+                <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none" />
+                {statusLocation === "SET" && (
+                  <div className="flex gap-2 mb-4">
+                    {["Red", "Navy", "Pink"].map((color) => (
+                      <button key={color} onClick={() => setSetMemo(color)} className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${setMemo === color ? "bg-[#5D2E2E] text-white" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>{color}</button>
+                    ))}
                   </div>
-                ))}
-                {pendingList.length === 0 && <p className="text-[11px] text-[#D1C4B5] italic text-center py-2">대기 중인 항목 없음</p>}
-              </div>
-            )}
-
-            {/* 버튼 영역 */}
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-3 text-center">
-                <button onClick={() => setShowInputModal(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button>
-                {isBatchMode && (
-                  <button onClick={addToPending} className="flex-1 py-4 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-2xl font-bold active:scale-95">추가</button>
                 )}
-              </div>
-              <button onClick={saveInventory} disabled={isSaving} className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg transition-all ${isSaving ? "bg-[#D1C4B5] cursor-not-allowed" : "bg-[#5D2E2E] active:scale-95"}`}>
-                {isSaving ? "저장 중..." : isBatchMode ? "전체 저장하기" : "저장하기"}
-              </button>
-            </div>
+                <div className="flex gap-2 mb-6"><button onClick={() => setQuantity(quantity + 10)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+10</button><button onClick={() => setQuantity(quantity + 40)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966]">+40</button><button onClick={() => setQuantity(0)} className="flex-1 py-3 bg-[#FFF5F5] border border-[#FFE3E3] rounded-xl text-[11px] font-bold text-[#DC3545]">초기화</button></div>
+                <div className="flex items-center justify-center gap-8 mb-8"><button onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={quantity || ""} placeholder="0" onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none placeholder:text-[#EFE9E1]" /><button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
+                
+                {isBatchMode && (
+                  <div className="mb-6 p-3 bg-[#F9F5F0] rounded-2xl border border-[#F5F0E9] max-h-32 overflow-y-auto">
+                    {pendingList.map((item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-[11px] font-bold mb-1 pb-1 border-b border-white/50">
+                        <span>{item.product_name.replace(" 양갱", "")} ({item.expiry_date.slice(5)})</span>
+                        <span>{item.quantity}개</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-3 text-center"><button onClick={() => setShowInputModal(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button>{isBatchMode && <button onClick={addToPending} className="flex-1 py-4 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-2xl font-bold">추가</button>}</div>
+                  <button onClick={saveInventory} disabled={isSaving} className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg ${isSaving ? "bg-[#D1C4B5]" : "bg-[#5D2E2E]"}`}>{isSaving ? "저장 중..." : "전체 저장하기"}</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
+      {/* 임박 사용/폐기 수량 입력 모달 */}
+      {urgentProcessTarget && (
+        <div className="fixed inset-0 bg-black/60 z-[750] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setUrgentProcessTarget(null)}>
+          <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold mb-2 text-[#5D2E2E]">{urgentTab === "USAGE" ? "사용 수량" : "폐기 수량"} 입력</h3>
+            <p className="text-xs text-[#A68966] mb-8 font-bold">{urgentProcessTarget.product_name} ({urgentProcessTarget.expiry_date})</p>
+            <div className="flex items-center justify-center gap-8 mb-10"><button onClick={() => setProcQty(Math.max(1, procQty - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full bg-white font-bold">-</button><input type="number" value={procQty} onChange={(e) => setProcQty(Math.min(urgentProcessTarget.quantity, parseInt(e.target.value) || 0))} className="w-20 text-center text-4xl font-black bg-transparent outline-none" /><button onClick={() => setProcQty(Math.min(urgentProcessTarget.quantity, procQty + 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full bg-white font-bold">+</button></div>
+            <div className="flex gap-3"><button onClick={() => setUrgentProcessTarget(null)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button><button onClick={() => confirmUrgentProcess(procQty)} className="flex-[2] py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">확인</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* 나머지 공지사항, 마감, 로그인, 수정, 이동, 삭제 모달 기존 코드 유지 */}
       {showNoticeInput && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowNoticeInput(false)}>
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -100,7 +106,6 @@ export default function InventoryModals(props: any) {
         </div>
       )}
 
-      {/* 마감 재고, 로그인, 수정, 이동, 삭제 모달 (스피너 제거 적용) */}
       {statusLocation === "CLOSING" && closingItems.length > 0 && (
         <div className="fixed inset-0 bg-white z-[800] flex flex-col p-6 overflow-hidden">
           <div className="max-w-md mx-auto w-full h-full flex flex-col">
@@ -108,7 +113,7 @@ export default function InventoryModals(props: any) {
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               <div className="bg-[#F9F5F0] px-6 py-2 rounded-full text-[#5D2E2E] font-bold text-sm mb-4">{closingItems[closingIndex].product_name}</div>
               <div className="text-[#A68966] text-base font-bold mb-8">유통기한: {closingItems[closingIndex].expiry_date}</div>
-              <input autoFocus type="number" key={closingItems[closingIndex].id} defaultValue={closingItems[closingIndex].quantity} onKeyDown={(e) => { if (e.key === "Enter") handleClosingNext(Number(e.currentTarget.value) || 0); }} className="w-full text-center text-7xl font-black bg-transparent outline-none text-[#5D2E2E] mb-12" style={{appearance: 'textfield'}} />
+              <input autoFocus type="number" key={closingItems[closingIndex].id} defaultValue={closingItems[closingIndex].quantity} onKeyDown={(e) => { if (e.key === "Enter") handleClosingNext(Number(e.currentTarget.value) || 0); }} className="w-full text-center text-7xl font-black bg-transparent outline-none text-[#5D2E2E] mb-12" />
               <button onClick={(e) => handleClosingNext(Number((e.currentTarget.previousElementSibling as HTMLInputElement).value) || 0)} className="w-full py-6 bg-[#5D2E2E] text-white rounded-[32px] text-xl font-bold shadow-xl active:scale-95 transition-all">확인 후 다음</button>
             </div>
           </div>
@@ -121,7 +126,7 @@ export default function InventoryModals(props: any) {
             <h2 className="text-xl mb-2 text-center font-bold text-[#5D2E2E]">잠금 해제</h2><p className="text-[11px] text-center text-[#A68966] font-bold mb-8">아이디와 비밀번호를 입력해주세요.</p>
             <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} placeholder="아이디" className="w-full mb-3 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-sm bg-white outline-none" />
             <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="비밀번호" className="w-full mb-8 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-sm bg-white outline-none" />
-            <button onClick={signIn} disabled={isAuthLoading} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg disabled:bg-[#F5F0E9] active:scale-95 transition-all">로그인</button>
+            <button onClick={signIn} disabled={isAuthLoading} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg disabled:bg-[#F5F0E9]">로그인</button>
           </div>
         </div>
       )}
@@ -130,7 +135,7 @@ export default function InventoryModals(props: any) {
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setEditTarget(null)}>
           <div className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold mb-2 text-[#5D2E2E]">수량 수정</h3><p className="text-xs text-[#A68966] mb-8 font-bold">{editTarget.product_name} ({editTarget.expiry_date})</p>
-            <div className="flex items-center justify-center gap-8 mb-10"><button onClick={() => setEditQty(Math.max(0, editQty - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={editQty} onChange={(e) => setEditQty(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none" style={{appearance: 'textfield'}} /><button onClick={() => setEditQty(editQty + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
+            <div className="flex items-center justify-center gap-8 mb-10"><button onClick={() => setEditQty(Math.max(0, editQty - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">-</button><input type="number" value={editQty} onChange={(e) => setEditQty(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none" /><button onClick={() => setEditQty(editQty + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E]">+</button></div>
             <button onClick={confirmEdit} className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg">수정 완료</button>
           </div>
         </div>
@@ -141,7 +146,7 @@ export default function InventoryModals(props: any) {
           <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-10 text-center border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="w-16 h-16 bg-[#FDFBF7] border-2 border-orange-400 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold">!</div>
             <p className="font-bold text-lg mb-8 text-[#3E2723]">해당 재고를<br/>임박 재고로 보낼까요?</p>
-            <div className="flex gap-3"><button onClick={() => setShowMoveUrgentModal(false)} className="flex-1 py-4 bg-white border border-[#F5F0E9] text-[#A68966] rounded-2xl font-bold">취소</button><button onClick={confirmMoveToUrgent} className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-md active:scale-95 transition-all">이동</button></div>
+            <div className="flex gap-3"><button onClick={() => setShowMoveUrgentModal(false)} className="flex-1 py-4 bg-white border border-[#F5F0E9] text-[#A68966] rounded-2xl font-bold">취소</button><button onClick={confirmMoveToUrgent} className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-md">이동</button></div>
           </div>
         </div>
       )}
@@ -158,7 +163,7 @@ export default function InventoryModals(props: any) {
 
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6" onClick={() => setDeleteTarget(null)}>
-          <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-10 text-center border border-[#EFE9E1] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#FDFBF7] w-full max-w-xs rounded-[32px] p-10 text-center border shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <p className="font-bold text-lg mb-8 text-[#3E2723]">정말 삭제할까요?</p>
             <div className="flex gap-3"><button onClick={() => setDeleteTarget(null)} className="flex-1 py-4 bg-white border border-[#F5F0E9] text-[#A68966] rounded-2xl font-bold">취소</button><button onClick={execDelete} className="flex-1 py-4 bg-[#DC3545] text-white rounded-2xl font-bold active:scale-95 transition-all">삭제</button></div>
           </div>

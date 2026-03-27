@@ -10,7 +10,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const YANGGANG_종류 = ["팥", "고운앙금", "통팥", "밤", "호두", "견과", "대추", "쌍화", "밀크티", "라즈베리", "곶감", "녹차", "말차", "백앙금", "흑임자", "고구마", "단호박"];
+// [수정] 요청하신 새로운 양갱 순서 반영
+const YANGGANG_종류 = ["팥", "고운앙금", "통팥", "밤", "호두", "견과", "대추", "쌍화", "라즈베리", "밀크티", "곶감", "녹차", "말차", "백앙금", "흑임자", "단호박", "고구마"];
 const SET_종류 = ["4구 클래식", "4구 01", "6구 클래식", "6구 01", "6구 02", "6구 03", "12구 클래식", "12구 01", "12구 02", "12구 03", "한정 12구", "16구"];
 
 export default function 재고관리페이지() {
@@ -18,15 +19,19 @@ export default function 재고관리페이지() {
   type 임박항목 = { id: string; product_name: string; quantity: number; expiry_date: string; };
   type 세트항목 = { id: string; set_name: string; quantity: number; expiry_date: string; color_data: string; };
   type 공지항목 = { id: string; title: string; content: string; created_at: string; };
-  type 입고대기 = { product_name: string; quantity: number; expiry_date: string; };
+  type 내역항목 = { id: string; product_name: string; quantity: number; expiry_date: string; created_at: string; };
 
   const [items, setItems] = useState<재고항목[]>([]);
   const [히스토리목록, set히스토리목록] = useState<any[]>([]);
   const [임박재고목록, set임박재고목록] = useState<임박항목[]>([]);
   const [세트재고목록, set세트재고목록] = useState<세트항목[]>([]);
   const [공지목록, set공지목록] = useState<공지항목[]>([]);
+  const [사용내역목록, set사용내역목록] = useState<내역항목[]>([]);
+  const [폐기내역목록, set폐기내역목록] = useState<내역항목[]>([]);
   
   const [현재위치, set현재위치] = useState<"FLOOR" | "WAREHOUSE" | "URGENT" | "SET" | "TOTAL" | "HISTORY" | "CLOSING" | "NOTICE">("FLOOR"); 
+  const [임박탭, set임박탭] = useState<"STORAGE" | "USAGE" | "DISPOSAL">("STORAGE");
+  
   const [토스트메시지, set토스트메시지] = useState(""); 
   const [메뉴열림, set메뉴열림] = useState(false);
   const [잠금해제됨, set잠금해제됨] = useState(false);
@@ -37,7 +42,7 @@ export default function 재고관리페이지() {
   const [저장중, set저장중] = useState(false);
 
   const [삭제대상, set삭제대상] = useState<any>(null);
-  const [삭제모드, set삭제모드] = useState<"inventory" | "urgent" | "set" | "notice">("inventory");
+  const [삭제모드, set삭제모드] = useState<"inventory" | "urgent" | "set" | "notice" | "usage" | "disposal">("inventory");
   const [수정대상, set수정대상] = useState<재고항목 | null>(null); 
   const [수정수량, set수정수량] = useState(0);
   const [이동대상, set이동대상] = useState<재고항목 | null>(null);
@@ -52,7 +57,7 @@ export default function 재고관리페이지() {
   const [입력수량, set입력수량] = useState(0);
   const [유통기한, set유통기한] = useState(new Date().toISOString().split('T')[0]);
   const [세트색상, set세트색상] = useState("");
-  const [입고대기목록, set입고대기목록] = useState<입고대기[]>([]);
+  const [입고대기목록, set입고대기목록] = useState<any[]>([]);
 
   const [공지입력보이기, set공지입력보이기] = useState(false);
   const [공지제목, set공지제목] = useState("");
@@ -60,6 +65,8 @@ export default function 재고관리페이지() {
 
   const [마감대상목록, set마감대상목록] = useState<재고항목[]>([]);
   const [현재마감인덱스, set현재마감인덱스] = useState(0);
+
+  const [임박처리대상, set임박처리대상] = useState<임박항목 | null>(null);
 
   const getLocationStock = (productName: string, location: "FLOOR" | "WAREHOUSE") => 
     items.filter(item => item.product_name === productName && item.location === location)
@@ -79,11 +86,26 @@ export default function 재고관리페이지() {
       if (sets) set세트재고목록(sets);
       const { data: notices } = await supabase.from("notices").select("*").order("created_at", { ascending: false });
       if (notices) set공지목록(notices);
+      
+      const { data: usage } = await supabase.from("urgent_usage").select("*").order("created_at", { ascending: false });
+      if (usage) set사용내역목록(usage);
+      const { data: disposal } = await supabase.from("urgent_disposal").select("*").order("created_at", { ascending: false });
+      if (disposal) set폐기내역목록(disposal);
     } catch (e) { console.error(e); }
+  }
+
+  // 한 달 지난 데이터 자동 삭제
+  async function 내역정리() {
+    const 한달전 = new Date();
+    한달전.setMonth(한달전.getMonth() - 1);
+    const isoString = 한달전.toISOString();
+    await supabase.from("urgent_usage").delete().lt("created_at", isoString);
+    await supabase.from("urgent_disposal").delete().lt("created_at", isoString);
   }
 
   useEffect(() => {
     재고가져오기();
+    내역정리();
     (async () => {
       try {
         const res = await fetch("/api/auth/session");
@@ -125,12 +147,11 @@ export default function 재고관리페이지() {
     else { 토스트알림("로그인 실패"); }
   }
 
-  async function 로그아웃() { await fetch("/api/auth/logout", { method: "POST" }); set잠금해제됨(false); set인증창보이기(true); 토스트알림("로그아웃 되었습니다."); }
+  async function 로그아웃() { await fetch("/api/auth/logout", { method: "POST" }); set잠금해제됨(false); 토스트알림("로그아웃 되었습니다."); }
 
   async function 재고저장() {
     if (!인증확인() || 저장중) return;
 
-    // 일괄 입고 모드일 때 대기 목록 처리
     if (일괄입고모드) {
       if (입고대기목록.length === 0) { 토스트알림("추가된 항목이 없습니다."); return; }
       set저장중(true);
@@ -147,7 +168,6 @@ export default function 재고관리페이지() {
       return;
     }
 
-    // 일반 재고 추가 처리
     if (입력수량 <= 0) { 토스트알림("수량을 입력해주세요."); return; }
     set저장중(true);
     try {
@@ -169,6 +189,27 @@ export default function 재고관리페이지() {
       }
       토스트알림("✅ 저장 완료"); set입력창보이기(false); 재고가져오기();
     } catch (e) { console.error(e); } finally { set저장중(false); }
+  }
+
+  // 임박 사용/폐기 처리 로직
+  async function 임박처리확정(수량: number) {
+    if (!임박처리대상 || 수량 <= 0) return;
+    const 항목 = 임박처리대상;
+    const 테이블 = 임박탭 === "USAGE" ? "urgent_usage" : "urgent_disposal";
+    const 메시지 = 임박탭 === "USAGE" ? "사용 등록 완료" : "폐기 등록 완료";
+
+    try {
+      // 1. 차감
+      if (항목.quantity <= 수량) await supabase.from("urgent_inventory").delete().eq("id", 항목.id);
+      else await supabase.from("urgent_inventory").update({ quantity: 항목.quantity - 수량 }).eq("id", 항목.id);
+      
+      // 2. 기록
+      await supabase.from(테이블).insert([{ product_name: 항목.product_name, quantity: 수량, expiry_date: 항목.expiry_date }]);
+      
+      토스트알림(`✅ ${메시지}`);
+      set임박처리대상(null);
+      재고가져오기();
+    } catch (e) { console.error(e); }
   }
 
   async function 공지저장() {
@@ -215,6 +256,8 @@ export default function 재고관리페이지() {
   async function 삭제실행() {
     if (!인증확인() || !삭제대상) return;
     if (삭제모드 === "urgent") { await supabase.from("urgent_inventory").delete().eq("id", 삭제대상.id); }
+    else if (삭제모드 === "usage") { await supabase.from("urgent_usage").delete().eq("id", 삭제대상.id); }
+    else if (삭제모드 === "disposal") { await supabase.from("urgent_disposal").delete().eq("id", 삭제대상.id); }
     else if (삭제모드 === "set") { await supabase.from("set_inventory").delete().eq("id", 삭제대상.id); }
     else if (삭제모드 === "notice") { await supabase.from("notices").delete().eq("id", 삭제대상.id); }
     else {
@@ -236,13 +279,22 @@ export default function 재고관리페이지() {
           input, select, textarea { color: #3E2723; }
         `}</style>
 
-        <InventoryHeader statusLocation={현재위치} setStatusLocation={set현재위치} setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} setShowAuthModal={set인증창보이기} />
+        <InventoryHeader statusLocation={현재위치} setStatusLocation={set현재위치} urgentTab={임박탭} setUrgentTab={set임박탭} setIsMenuOpen={set메뉴열림} isMenuOpen={메뉴열림} isUnlocked={잠금해제됨} signOut={로그아웃} setShowAuthModal={set인증창보이기} />
+        
         <div className="flex justify-between items-end mb-4 px-1 h-[42px]">
           {현재위치 !== "TOTAL" && 현재위치 !== "HISTORY" && 현재위치 !== "CLOSING" && 현재위치 !== "NOTICE" && (
             <div className="flex gap-2 h-full items-center">
-              <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목(현재위치 === "SET" ? "4구 클래식" : "팥 양갱"); set일괄입고모드(false); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 재고 추가</button>
-              {현재위치 === "WAREHOUSE" && (
-                <button onClick={() => { if (인증확인()) { set입력수량(40); set선택품목("팥 양갱"); set일괄입고모드(true); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>
+              {현재위치 === "URGENT" ? (
+                임박탭 !== "STORAGE" && (
+                  <button onClick={() => { if (인증확인()) set입력창보이기(true); }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ {임박탭 === "USAGE" ? "사용" : "폐기"} 등록</button>
+                )
+              ) : (
+                <>
+                  <button onClick={() => { if (인증확인()) { set입력수량(현재위치 === "WAREHOUSE" ? 40 : 0); set선택품목(현재위치 === "SET" ? "4구 클래식" : "팥 양갱"); set일괄입고모드(false); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-[#5D2E2E] text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">+ 재고 추가</button>
+                  {현재위치 === "WAREHOUSE" && (
+                    <button onClick={() => { if (인증확인()) { set입력수량(40); set선택품목("팥 양갱"); set일괄입고모드(true); set입고대기목록([]); set입력창보이기(true); } }} className="h-full px-5 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-xl text-xs font-bold shadow-sm active:scale-95">📦 일괄 입고</button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -253,13 +305,15 @@ export default function 재고관리페이지() {
             {현재위치 === "FLOOR" ? "홀" : 현재위치 === "WAREHOUSE" ? "창고" : 현재위치 === "URGENT" ? "임박" : 현재위치 === "SET" ? "세트" : 현재위치 === "HISTORY" ? "입출고 기록" : 현재위치 === "CLOSING" ? "재고 마감" : 현재위치 === "NOTICE" ? "공지사항" : "합계"}
           </span>
         </div>
+
         <InventoryContent 
-          statusLocation={현재위치} historyEvents={히스토리목록} clearHistory={히스토리비우기} items={items} urgentItems={임박재고목록} setInventoryItems={세트재고목록} noticeItems={공지목록} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류}
+          statusLocation={현재위치} urgentTab={임박탭} historyEvents={히스토리목록} clearHistory={히스토리비우기} items={items} urgentItems={임박재고목록} setInventoryItems={세트재고목록} noticeItems={공지목록} usageItems={사용내역목록} disposalItems={폐기내역목록} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류}
           getLocationStock={getLocationStock} getDaysUntilExpiry={남은일수계산} URGENT_DAYS={14} ensureAuthenticated={인증확인} setEditTarget={set수정대상} setEditQty={set수정수량} setMoveTarget={set이동대상} setMoveQty={set이동수량} setDeleteMode={set삭제모드} setDeleteTarget={set삭제대상} 
           setShowMoveUrgentModal={set임박이동창보이기} setMoveUrgentTarget={set임박이동대상} fmtDate={(iso:any)=>iso.slice(5).replace("-","/")}
         />
+
         <InventoryModals 
-          showInputModal={입력창보이기} setShowInputModal={set입력창보이기} isBatchMode={일괄입고모드} statusLocation={현재위치} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류} selectedProduct={선택품목} setSelectedProduct={set선택품목} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} setMemo={세트색상} setSetMemo={set세트색상} saveInventory={재고저장} isSaving={저장중}
+          showInputModal={입력창보이기} setShowInputModal={set입력창보이기} isBatchMode={일괄입고모드} statusLocation={현재위치} urgentTab={임박탭} urgentItems={임박재고목록} YANGGANG_TYPES={YANGGANG_종류} SET_TYPES={SET_종류} selectedProduct={선택품목} setSelectedProduct={set선택품목} expiryDate={유통기한} setExpiryDate={set유통기한} quantity={입력수량} setQuantity={set입력수량} setMemo={세트색상} setSetMemo={set세트색상} saveInventory={재고저장} isSaving={저장중}
           showAuthModal={인증창보이기} loginId={아이디} setLoginId={set아이디} loginPassword={비밀번호} setLoginPassword={set비밀번호} isAuthLoading={인증중} signIn={로그인}
           editTarget={수정대상} setEditTarget={set수정대상} editQty={수정수량} setEditQty={set수정수량} confirmEdit={수정확정}
           moveTarget={이동대상} setMoveTarget={set이동대상} moveQty={이동수량} setMoveQty={set이동수량} moveInventory={재고이동}
@@ -268,6 +322,7 @@ export default function 재고관리페이지() {
           closingItems={마감대상목록} closingIndex={현재마감인덱스} setClosingIndex={set현재마감인덱스} setStatusLocation={set현재위치} triggerToast={토스트알림} refreshData={재고가져오기} 
           showNoticeInput={공지입력보이기} setShowNoticeInput={set공지입력보이기} noticeTitle={공지제목} setNoticeTitle={set공지제목} noticeContent={공지내용} setNoticeContent={set공지내용} saveNotice={공지저장}
           pendingList={입고대기목록} setPendingList={set입고대기목록}
+          urgentProcessTarget={임박처리대상} setUrgentProcessTarget={set임박처리대상} confirmUrgentProcess={임박처리확정}
         />
         {토스트메시지 && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{토스트메시지}</div>}
       </div>
