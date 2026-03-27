@@ -29,7 +29,8 @@ export function useInventory() {
   const [modals, setModals] = useState({
     input: false, batch: false, edit: null as any, editQty: 0, move: null as any, moveQty: 0,
     delete: null as any, deleteMode: "inventory", moveUrgent: false, moveUrgentTarget: null as any,
-    notice: false, noticeTitle: "", noticeContent: "", urgentProcess: null as any
+    notice: false, noticeTitle: "", noticeContent: "", urgentProcess: null as any,
+    closingDetail: null as any
   });
 
   const [flow, setFlow] = useState({
@@ -75,13 +76,16 @@ export function useInventory() {
     })();
   }, [refreshData]);
 
+  // --- [1. 권한 매니저 (Auth)] ---
   const auth = {
     ...authInfo,
-    userId: authForm.userId, password: authForm.password,
+    userId: authForm.userId,
+    password: authForm.password,
     setUserId: (id: string) => setAuthForm(p => ({ ...p, userId: id })),
     setPassword: (pw: string) => setAuthForm(p => ({ ...p, password: pw })),
     openLogin: () => setAuthInfo(p => ({ ...p, showModal: true })),
-    ensureAuth: () => {
+    closeLogin: () => setAuthInfo(p => ({ ...p, showModal: false })),
+    ensureAuth: () => { // <--- 누락되었던 함수 추가
       if (authInfo.isUnlocked) return true;
       setAuthInfo(p => ({ ...p, showModal: true }));
       triggerToast("로그인이 필요합니다.");
@@ -96,26 +100,23 @@ export function useInventory() {
       setAuthInfo(p => ({ ...p, isLoading: false }));
       if (res.ok) {
         setAuthInfo(p => ({ ...p, isUnlocked: true, showModal: false, loginUser: authForm.userId, userRole: (authForm.userId === "manager01" || authForm.userId === "god6332") ? "ADMIN" : "STAFF" }));
-        triggerToast("로그인 성공");
-        refreshData();
+        triggerToast("로그인 성공"); refreshData();
       } else triggerToast("로그인 실패");
     },
     logout: async () => { await fetch("/api/auth/logout", { method: "POST" }); location.reload(); }
   };
 
+  // --- [2. 데이터 매니저 (Inventory)] ---
   const inventory = {
     ...data,
     refresh: refreshData,
     getLocationStock: (p: string, l: any) => data.items.filter(i => i.product_name === p && i.location === l).reduce((acc, cur) => acc + cur.quantity, 0),
     save: async () => {
       if (!auth.ensureAuth() || uiState.isSaving) return;
-
-      // [수정] 임박 재고 14일 초과 등록 제한
       if (uiState.location === "URGENT") {
         const diff = Math.ceil((new Date(flow.entryExpiry).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
         if (diff > 14) { triggerToast("14일 이내 재고만 등록 가능합니다."); return; }
       }
-
       setUiState(p => ({ ...p, isSaving: true }));
       try {
         if (modals.batch) {
@@ -213,7 +214,7 @@ export function useInventory() {
     startClosing: async () => {
       const 오늘 = new Date().toISOString().split('T')[0];
       const { data: exist } = await supabase.from("daily_closing").select("id").eq("closing_date", 오늘).maybeSingle();
-      if (exist) { triggerToast("오늘 마감은 완료되었습니다."); return; } // [수정] 멘트 변경
+      if (exist) { triggerToast("오늘 마감은 완료되었습니다."); return; }
       const hallItems = data.items.filter(i => i.location === "FLOOR").sort((a, b) => {
         const idxA = YANGGANG_종류.indexOf(a.product_name.replace(" 양갱", ""));
         const idxB = YANGGANG_종류.indexOf(b.product_name.replace(" 양갱", ""));
@@ -222,8 +223,13 @@ export function useInventory() {
       if (hallItems.length === 0) { triggerToast("홀에 재고가 없습니다."); setUiState(p => ({ ...p, location: "TOTAL" })); }
       else { setFlow(p => ({ ...p, closingList: hallItems, closingIndex: 0 })); setUiState(p => ({ ...p, location: "CLOSING" })); }
     },
-    saveClosing: async (snapshot: any) => {
+    saveClosing: async (dummy: any) => {
       const 오늘 = new Date().toISOString().split('T')[0];
+      const snapshot = YANGGANG_종류.map(name => ({
+        product_name: `${name} 양갱`,
+        floor: data.items.filter(i => i.product_name === `${name} 양갱` && i.location === "FLOOR").reduce((a,c)=>a+c.quantity, 0),
+        warehouse: data.items.filter(i => i.product_name === `${name} 양갱` && i.location === "WAREHOUSE").reduce((a,c)=>a+c.quantity, 0)
+      }));
       await supabase.from("daily_closing").insert([{ closing_date: 오늘, stock_snapshot: snapshot, user_id: auth.loginUser }]);
       triggerToast("✅ 마감 기록 완료"); refreshData();
     }

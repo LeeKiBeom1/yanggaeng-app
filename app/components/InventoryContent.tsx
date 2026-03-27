@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 export default function InventoryContent(props: any) {
-  const { statusLocation, archiveTab, urgentTab, userRole, historyEvents, clearHistory, items, urgentItems, setInventoryItems, noticeItems, usageItems, disposalItems, closingRecords, YANGGANG_TYPES, SET_TYPES, getLocationStock, getDaysUntilExpiry, ensureAuthenticated, setEditTarget, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget, fmtDate } = props;
+  const { statusLocation, archiveTab, urgentTab, userRole, historyEvents, clearHistory, items, urgentItems, setInventoryItems, noticeItems, usageItems, disposalItems, closingRecords, YANGGANG_TYPES, SET_TYPES, getLocationStock, getDaysUntilExpiry, ensureAuthenticated, setEditTarget, setMoveTarget, setMoveQty, setDeleteMode, setDeleteTarget, setShowMoveUrgentModal, setMoveUrgentTarget, fmtDate, setClosingDetail } = props;
   const [showDetail, setShowDetail] = useState(false);
 
   if (statusLocation === "TOTAL") {
@@ -54,14 +54,14 @@ export default function InventoryContent(props: any) {
     if (archiveTab === "DAILY") {
       return (
         <div className="w-full space-y-3 mb-12">
-          <h3 className="px-1 text-sm font-bold text-[#5D2E2E]">일마감 기록 보관소</h3>
+          <h3 className="px-1 text-sm font-bold text-[#5D2E2E]">일마감 기록 보관소 (클릭 시 상세)</h3>
           {closingRecords.map((rec: any) => (
-            <div key={rec.id} className="bg-white rounded-2xl border border-[#EFE9E1] p-5 shadow-sm flex justify-between items-center">
+            <div key={rec.id} onClick={() => setClosingDetail(rec)} className="bg-white rounded-2xl border border-[#EFE9E1] p-5 shadow-sm flex justify-between items-center active:scale-[0.98] transition-all cursor-pointer">
               <div>
                 <div className="text-sm font-bold text-[#5D2E2E]">{rec.closing_date} 마감 기록</div>
                 <div className="text-[10px] text-[#A68966] mt-1">담당: {rec.user_id}</div>
               </div>
-              <button onClick={() => { if (userRole === "ADMIN") { setDeleteMode("daily"); setDeleteTarget(rec); } }} className={`px-4 py-2 rounded-xl text-[11px] font-bold ${userRole === "ADMIN" ? "bg-[#FFF5F5] text-[#DC3545]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>삭제</button>
+              <button onClick={(e) => { e.stopPropagation(); if (userRole === "ADMIN") { setDeleteMode("daily"); setDeleteTarget(rec); } }} className={`px-4 py-2 rounded-xl text-[11px] font-bold ${userRole === "ADMIN" ? "bg-[#FFF5F5] text-[#DC3545]" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>삭제</button>
             </div>
           ))}
           {closingRecords.length === 0 && <div className="py-20 text-center text-sm text-[#A68966] italic">기록이 없습니다.</div>}
@@ -107,7 +107,6 @@ export default function InventoryContent(props: any) {
     );
   }
 
-  // [수정] 임박 사용/폐기 내역 UI 레이아웃 변경
   if (statusLocation === "URGENT" && (urgentTab === "USAGE" || urgentTab === "DISPOSAL")) {
     const list = urgentTab === "USAGE" ? usageItems : disposalItems;
     const todayStr = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
@@ -116,16 +115,16 @@ export default function InventoryContent(props: any) {
         <h3 className="px-1 text-sm font-bold text-[#5D2E2E]">{urgentTab === "USAGE" ? "사용" : "폐기"} 내역</h3>
         <div className="bg-white rounded-2xl border border-[#EFE9E1] divide-y overflow-hidden shadow-sm">
           {list.map((item: any) => (
-            <div key={item.id} className="px-5 py-4 flex flex-col gap-1">
+            <div key={item.id} className="px-5 py-4 flex flex-col gap-1 relative">
               <div className="flex justify-between items-start">
                 <span className="font-bold text-[15px] text-[#3E2723]">{item.product_name}</span>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pr-6">
                   <span className="text-[13px] font-bold text-[#A68966]">{fmtDate(item.expiry_date)}</span>
                   <span className="font-black text-[16px] text-[#5D2E2E]">{item.quantity}개</span>
-                  <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode(urgentTab === "USAGE" ? "usage" : "disposal"); setDeleteTarget(item); } }} className="text-[#DC3545] font-bold ml-1">×</button>
                 </div>
               </div>
               <div className="text-[10px] font-bold text-[#D1C4B5]">{todayStr}</div>
+              <button onClick={() => { if (ensureAuthenticated()) { setDeleteMode(urgentTab === "USAGE" ? "usage" : "disposal"); setDeleteTarget(item); } }} className="absolute top-1/2 -translate-y-1/2 right-4 text-[#DC3545] font-bold text-lg">×</button>
             </div>
           ))}
           {list.length === 0 && <div className="py-20 text-center text-sm text-[#A68966] italic">내역이 없습니다.</div>}

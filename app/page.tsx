@@ -8,14 +8,12 @@ import InventoryContent from "./components/InventoryContent";
 export default function 재고관리페이지() {
   const { auth, inventory, workflow, ui, constants } = useInventory();
 
-  // [수정] 모달 오픈 시 스크롤 방지 로직
   useEffect(() => {
-    const isModalOpen = auth.showModal || ui.modalStates.input || ui.modalStates.edit || ui.modalStates.move || ui.modalStates.delete || ui.modalStates.moveUrgent || ui.modalStates.notice || ui.modalStates.urgentProcess || ui.location === "CLOSING";
+    const isModalOpen = auth.showModal || ui.modalStates.input || ui.modalStates.edit || ui.modalStates.move || ui.modalStates.delete || ui.modalStates.moveUrgent || ui.modalStates.notice || ui.modalStates.urgentProcess || ui.modalStates.closingDetail || ui.location === "CLOSING";
     if (isModalOpen) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "unset";
   }, [auth.showModal, ui.modalStates, ui.location]);
 
-  // [수정] 로그아웃 상태일 때 로그인 창만 강제 출력
   if (!auth.isUnlocked) {
     return (
       <div className="w-full h-screen bg-[#FDFBF7] flex items-center justify-center">
@@ -80,6 +78,7 @@ export default function 재고관리페이지() {
           setShowMoveUrgentModal={(s:boolean)=>ui.setModals((p:any)=>({...p, moveUrgent:s}))} 
           setMoveUrgentTarget={(t:any)=>ui.setModals((p:any)=>({...p, moveUrgentTarget:t}))} 
           fmtDate={(iso:any)=>iso.slice(5).replace("-","/")}
+          setClosingDetail={(c:any)=>ui.setModals((p:any)=>({...p, closingDetail:c}))}
         />
 
         <InventoryModals 
@@ -99,6 +98,7 @@ export default function 재고관리페이지() {
           closingItems={workflow.closingList} closingIndex={workflow.closingIndex} setClosingIndex={(i:any)=>workflow.setEntry("closingIndex", i)} setStatusLocation={ui.setLocation} triggerToast={ui.triggerToast} refreshData={inventory.refresh} saveClosing={workflow.saveClosing}
           showNoticeInput={ui.modalStates.notice} setShowNoticeInput={(s:any)=>ui.setModals((p:any)=>({...p, notice:s}))} noticeTitle={ui.modalStates.noticeTitle} setNoticeTitle={(t:any)=>ui.setModals((p:any)=>({...p, noticeTitle:t}))} noticeContent={ui.modalStates.noticeContent} setNoticeContent={(c:any)=>ui.setModals((p:any)=>({...p, noticeContent:c}))} saveNotice={inventory.saveNotice}
           urgentProcessTarget={ui.modalStates.urgentProcess} setUrgentProcessTarget={(t:any)=>ui.setModals((p:any)=>({...p, urgentProcess:t}))} confirmUrgentProcess={inventory.confirmUrgentProcess}
+          closingDetail={ui.modalStates.closingDetail} setClosingDetail={(c:any)=>ui.setModals((p:any)=>({...p, closingDetail:c}))}
         />
 
         {ui.toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-gray-800 text-white text-sm font-bold shadow-xl z-[900]">{ui.toast}</div>}
