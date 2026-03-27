@@ -3,14 +3,14 @@
 import { useEffect } from "react";
 import { useInventory } from "./hooks/useInventory";
 
-// 분리된 컴포넌트들 불러오기
+// 컴포넌트 불러오기
 import InventoryHeader from "./components/inventory/InventoryHeader";
 import InventoryList from "./components/inventory/InventoryList";
 import InventoryTotal from "./components/inventory/InventoryTotal";
 import InventoryArchive from "./components/inventory/InventoryArchive";
 import InventoryNotice from "./components/inventory/InventoryNotice";
 
-// 분리된 모달들 불러오기
+// 모달 불러오기
 import AuthModal from "./components/modals/AuthModal";
 import InputModal from "./components/modals/InputModal";
 import EditModal from "./components/modals/EditModal";
@@ -58,6 +58,7 @@ export default function 재고관리페이지() {
           input[type=number] { -moz-appearance: textfield; }
         `}</style>
 
+        {/* 상단 헤더 */}
         <InventoryHeader 
           statusLocation={ui.location} setStatusLocation={ui.setLocation} 
           archiveTab={ui.archiveTab} setArchiveTab={ui.setArchiveTab} 
@@ -67,6 +68,7 @@ export default function 재고관리페이지() {
           checkClosing={workflow.startClosing} setShowAuthModal={auth.openLogin}
         />
 
+        {/* 액션 버튼 영역 */}
         <div className="flex justify-between items-end mb-4 px-1 h-[42px]">
           {!["TOTAL", "ARCHIVE", "CLOSING", "NOTICE"].includes(ui.location) && (
             <div className="flex gap-2 h-full items-center">
@@ -99,6 +101,7 @@ export default function 재고관리페이지() {
           </span>
         </div>
 
+        {/* 메인 콘텐츠 */}
         {ui.location === "TOTAL" ? (
           <InventoryTotal items={inventory.items} YANGGANG_TYPES={constants.YANGGANG_종류} />
         ) : ui.location === "ARCHIVE" ? (
@@ -114,11 +117,12 @@ export default function 재고관리페이지() {
             setDeleteMode={(m) => ui.setModals((p:any)=>({...p, deleteMode:m}))} setDeleteTarget={(t) => ui.setModals((p:any)=>({...p, delete:t}))}
           />
         ) : ui.location === "CLOSING" ? (
-          null 
+          null // ClosingModal이 직접 관리
         ) : (
           <InventoryList 
             statusLocation={ui.location} items={inventory.items} 
             setInventoryItems={inventory.sets} urgentItems={inventory.urgent} 
+            usageLogs={inventory.usage} disposalLogs={inventory.disposal} urgentTab={ui.urgentTab} // 임박 내역 데이터 전달
             YANGGANG_TYPES={constants.YANGGANG_종류} SET_TYPES={constants.SET_종류}
             ensureAuthenticated={auth.ensureAuth}
             setEditTarget={(t) => ui.setModals((p:any)=>({...p, edit:t, editQty:t.quantity}))}
@@ -131,12 +135,7 @@ export default function 재고관리페이지() {
           />
         )}
 
-        <AuthModal 
-          showAuthModal={auth.showModal} loginId={auth.userId} setLoginId={auth.setUserId} 
-          loginPassword={auth.password} setLoginPassword={auth.setPassword} 
-          isAuthLoading={auth.isLoading} signIn={auth.login}
-        />
-
+        {/* 모든 모달 조립 */}
         <InputModal 
           showInputModal={ui.modalStates.input} setShowInputModal={(s) => ui.setModals((p:any)=>({...p, input:s}))}
           isBatchMode={ui.modalStates.batch} statusLocation={ui.location} urgentTab={ui.urgentTab} urgentItems={inventory.urgent}
@@ -163,7 +162,8 @@ export default function 재고관리페이지() {
 
         <ClosingModal 
           closingItems={workflow.closingList} closingIndex={workflow.closingIndex} handleClosingNext={workflow.handleClosingStep} 
-          setStatusLocation={ui.setLocation} closingDetail={ui.modalStates.closingDetail} setClosingDetail={(c) => ui.setModals((p:any)=>({...p, closingDetail:c}))}
+          setStatusLocation={ui.setLocation} cancelClosing={workflow.cancelClosing} // 마감 취소 연결
+          closingDetail={ui.modalStates.closingDetail} setClosingDetail={(c) => ui.setModals((p:any)=>({...p, closingDetail:c}))}
           showNoticeInput={ui.modalStates.notice} setShowNoticeInput={(s) => ui.setModals((p:any)=>({...p, notice:s}))}
           noticeTitle={ui.modalStates.noticeTitle} setNoticeTitle={(t) => ui.setModals((p:any)=>({...p, noticeTitle:t}))}
           noticeContent={ui.modalStates.noticeContent} setNoticeContent={(c) => ui.setModals((p:any)=>({...p, noticeContent:c}))} saveNotice={inventory.saveNotice}

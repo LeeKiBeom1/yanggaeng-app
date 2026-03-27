@@ -1,13 +1,16 @@
 "use client";
 
 import { fmtDate, getExpiryStatusColor, getDaysUntilExpiry } from "@/lib/utils/date";
-import { InventoryItem, SetInventory, UrgentInventory } from "@/app/types/inventory";
+import { InventoryItem, SetInventory, UrgentInventory, UrgentLog } from "@/app/types/inventory";
 
 interface InventoryListProps {
   statusLocation: string;
   items: InventoryItem[];
   setInventoryItems: SetInventory[];
   urgentItems: UrgentInventory[];
+  usageLogs?: UrgentLog[];      // 추가
+  disposalLogs?: UrgentLog[];   // 추가
+  urgentTab?: string;           // 추가
   YANGGANG_TYPES: string[];
   SET_TYPES: string[];
   ensureAuthenticated: () => boolean;
@@ -25,6 +28,9 @@ export default function InventoryList({
   items,
   setInventoryItems,
   urgentItems,
+  usageLogs = [],
+  disposalLogs = [],
+  urgentTab = "STORAGE",
   YANGGANG_TYPES,
   SET_TYPES,
   ensureAuthenticated,
@@ -37,7 +43,42 @@ export default function InventoryList({
   setMoveUrgentTarget,
 }: InventoryListProps) {
   
-  // 현재 위치에 따라 표시할 품목 리스트(양갱 또는 세트) 결정
+  // [정상화] 임박 재고의 '사용' 및 '폐기' 내역 처리 로직 추가
+  if (statusLocation === "URGENT" && (urgentTab === "USAGE" || urgentTab === "DISPOSAL")) {
+    const logs = urgentTab === "USAGE" ? usageLogs : disposalLogs;
+    return (
+      <div className="w-full bg-white rounded-3xl border border-[#EFE9E1] divide-y divide-[#F5F0E9] overflow-hidden shadow-sm">
+        {logs.map((log) => (
+          <div key={log.id} className="p-4 flex justify-between items-center bg-[#FDFBF7]/50">
+            <div>
+              <div className="font-bold text-[#5D2E2E] text-sm">{log.product_name}</div>
+              <div className="text-[10px] text-[#A68966] mt-0.5">
+                {fmtDate(log.expiry_date)} 기한 · {new Date(log.created_at).toLocaleDateString()} 처리
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="font-black text-[#3E2723]">{log.quantity}개</span>
+              <button 
+                onClick={() => { 
+                  if(ensureAuthenticated()) {
+                    setDeleteMode(urgentTab === "USAGE" ? "usage" : "disposal");
+                    setDeleteTarget(log);
+                  }
+                }} 
+                className="text-[#DC3545] font-bold px-2 text-lg active:scale-75 transition-all"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+        {logs.length === 0 && (
+          <div className="py-24 text-center text-sm text-[#A68966] italic">기록이 없습니다.</div>
+        )}
+      </div>
+    );
+  }
+
   const currentTypes = statusLocation === "SET" ? SET_TYPES : YANGGANG_TYPES;
 
   return (
@@ -45,7 +86,6 @@ export default function InventoryList({
       {currentTypes.map((name: string) => {
         const pName = statusLocation === "SET" ? name : `${name} 양갱`;
         
-        // 데이터 필터링 로직
         let list: any[] = [];
         if (statusLocation === "SET") {
           list = setInventoryItems.filter((i) => i.set_name === pName);
@@ -60,14 +100,12 @@ export default function InventoryList({
             key={name} 
             className={`bg-white rounded-[24px] border border-[#EFE9E1] shadow-sm overflow-hidden ${list.length === 0 ? "opacity-60" : ""}`}
           >
-            {/* 품목 타이틀 (예: 팥) */}
             <div className="bg-[#F9F5F0] px-4 py-2 border-b border-[#F5F0E9] font-bold text-[13px] text-[#5D2E2E]">
               {name}
             </div>
             
             <div className="p-2">
               {list.length > 0 ? (
-                /* 콤팩트 가로 레이아웃 (한 줄에 2개) */
                 <div className="grid grid-cols-2 gap-2">
                   {list.sort((a, b) => a.expiry_date.localeCompare(b.expiry_date)).map((item) => {
                     const d = getDaysUntilExpiry(item.expiry_date);
@@ -76,7 +114,6 @@ export default function InventoryList({
                     return (
                       <div key={item.id} className="bg-[#FDFBF7] rounded-xl border border-[#F5F0E9] p-2 flex flex-col gap-1">
                         <div className="flex items-center justify-between">
-                          {/* 정보 클릭 시 수정 모달 (세트 제외) */}
                           <div 
                             onClick={() => { if (ensureAuthenticated() && statusLocation !== "SET") setEditTarget(item); }} 
                             className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"
@@ -86,9 +123,7 @@ export default function InventoryList({
                             <span className="text-[12px] font-black text-[#3E2723] shrink-0">{item.quantity}개</span>
                           </div>
 
-                          {/* 조작 버튼 영역 */}
                           <div className="flex gap-1 shrink-0 ml-1">
-                            {/* [!] 경고등 버튼 (홀 재고이고 14일 이하일 때만 노출) */}
                             {statusLocation === "FLOOR" && d <= 14 && (
                               <button 
                                 onClick={() => { if (ensureAuthenticated()) { setMoveUrgentTarget(item); setShowMoveUrgentModal(true); } }} 
@@ -97,7 +132,6 @@ export default function InventoryList({
                                 !
                               </button>
                             )}
-                            {/* 창고에서 홀로 이동 버튼 */}
                             {statusLocation === "WAREHOUSE" && (
                               <button 
                                 onClick={() => { if (ensureAuthenticated()) { setMoveTarget(item); setMoveQty(item.quantity); } }} 
@@ -106,7 +140,6 @@ export default function InventoryList({
                                 🚚
                               </button>
                             )}
-                            {/* 삭제 버튼 */}
                             <button 
                               onClick={() => { 
                                 if (ensureAuthenticated()) { 
@@ -120,7 +153,6 @@ export default function InventoryList({
                             </button>
                           </div>
                         </div>
-                        {/* 세트 색상 표시 (있는 경우만) */}
                         {item.color_data && (
                           <div 
                             className="text-[10px] font-bold ml-3.5" 

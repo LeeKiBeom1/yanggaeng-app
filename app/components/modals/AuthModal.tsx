@@ -3,9 +3,9 @@
 interface AuthModalProps {
   showAuthModal: boolean;
   loginId: string;
-  setLoginId: (id: string) => void;
+  setLoginId: (val: string) => void;
   loginPassword: string;
-  setLoginPassword: (pw: string) => void;
+  setLoginPassword: (val: string) => void;
   isAuthLoading: boolean;
   signIn: () => void;
 }
@@ -22,43 +22,47 @@ export default function AuthModal({
   if (!showAuthModal) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[760] flex items-center justify-center p-6 backdrop-blur-sm">
-      <div 
-        className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-8 border border-[#EFE9E1] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+    <div className="fixed inset-0 bg-black/40 z-[999] flex items-center justify-center p-6 backdrop-blur-md">
+      {/* form 태그와 onSubmit 추가로 엔터 키 로그인 지원 */}
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          signIn();
+        }}
+        className="bg-[#FDFBF7] w-full max-w-sm rounded-[32px] p-10 border border-[#EFE9E1] shadow-2xl"
       >
-        <h2 className="text-xl mb-2 text-center font-bold text-[#5D2E2E]">잠금 해제</h2>
-        <p className="text-[11px] text-center text-[#A68966] font-bold mb-8">
-          아이디와 비밀번호를 입력해주세요.
-        </p>
+        <div className="mb-10 text-center">
+          <h2 className="text-2xl font-black text-[#5D2E2E] tracking-tighter mb-2">금옥당</h2>
+          <p className="text-xs text-[#A68966] font-bold">재고 관리를 위해 로그인하세요.</p>
+        </div>
         
-        {/* 아이디 입력창 (텍스트 진하게 #3E2723) */}
-        <input 
-          type="text" 
-          value={loginId} 
-          onChange={(e) => setLoginId(e.target.value)} 
-          placeholder="아이디" 
-          className="w-full mb-3 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-sm bg-white outline-none text-[#3E2723] placeholder:text-[#D1C4B5]" 
-        />
+        <div className="space-y-3 mb-8">
+          <input 
+            type="text" 
+            placeholder="아이디" 
+            value={loginId} 
+            onChange={(e) => setLoginId(e.target.value)}
+            className="w-full p-4 bg-white border border-[#F5F0E9] rounded-2xl outline-none font-bold text-[#3E2723] focus:border-[#5D2E2E] transition-colors" 
+          />
+          <input 
+            type="password" 
+            placeholder="비밀번호" 
+            value={loginPassword} 
+            onChange={(e) => setLoginPassword(e.target.value)}
+            className="w-full p-4 bg-white border border-[#F5F0E9] rounded-2xl outline-none font-bold text-[#3E2723] focus:border-[#5D2E2E] transition-colors" 
+          />
+        </div>
         
-        {/* 비밀번호 입력창 (텍스트 진하게 #3E2723) */}
-        <input 
-          type="password" 
-          value={loginPassword} 
-          onChange={(e) => setLoginPassword(e.target.value)} 
-          placeholder="비밀번호" 
-          className="w-full mb-8 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-sm bg-white outline-none text-[#3E2723] placeholder:text-[#D1C4B5]" 
-        />
-        
-        {/* 로그인 버튼 */}
         <button 
-          onClick={signIn} 
-          disabled={isAuthLoading} 
-          className="w-full py-4 bg-[#5D2E2E] text-white rounded-2xl font-bold shadow-lg disabled:bg-[#D1C4B5] active:scale-[0.98] transition-all"
+          type="submit"
+          disabled={isAuthLoading}
+          className={`w-full py-5 rounded-2xl font-black text-white shadow-lg active:scale-95 transition-all ${
+            isAuthLoading ? "bg-gray-400" : "bg-[#5D2E2E]"
+          }`}
         >
-          {isAuthLoading ? "로그인 중..." : "로그인"}
+          {isAuthLoading ? "확인 중..." : "시작하기"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

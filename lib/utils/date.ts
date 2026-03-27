@@ -15,8 +15,6 @@ export const getTodayStr = (): string => {
   
   /**
    * 유통기한까지 남은 일수를 계산합니다.
-   * @param expiryDate "YYYY-MM-DD" 형식의 유통기한
-   * @returns 남은 일수 (오늘 기준)
    */
   export const getDaysUntilExpiry = (expiryDate: string): number => {
     const today = new Date();
@@ -38,14 +36,27 @@ export const getTodayStr = (): string => {
   };
   
   /**
-   * 유통기한 상태에 따른 색상 코드를 반환합니다. (경고등 로직)
-   * - 1일 이하: 빨간색
-   * - 14일 이하: 주황색
-   * - 그 외: 초록색
+   * 유통기한 상태에 따른 색상 코드를 반환합니다.
    */
   export const getExpiryStatusColor = (expiryDate: string): string => {
     const days = getDaysUntilExpiry(expiryDate);
     if (days <= 1) return "bg-red-500 shadow-[0_0_5px_#ef4444]";
     if (days <= 14) return "bg-orange-500 shadow-[0_0_5px_#f97316]";
     return "bg-green-500 shadow-[0_0_5px_#22c55e]";
+  };
+  
+  /**
+   * 달력 생성을 위한 특정 월의 날짜 배열을 반환합니다.
+   */
+  export const getCalendarDays = (year: number, month: number) => {
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    
+    const days = [];
+    // 이전 달의 빈 칸
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    // 현재 달의 날짜
+    for (let i = 1; i <= lastDate; i++) days.push(i);
+    
+    return days;
   };

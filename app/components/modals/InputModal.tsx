@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { UrgentInventory } from "@/app/types/inventory";
+import { getCalendarDays } from "@/lib/utils/date";
 
 interface InputModalProps {
   showInputModal: boolean;
@@ -51,10 +53,16 @@ export default function InputModal({
   setUrgentProcessTarget,
   setProcQty,
 }: InputModalProps) {
+  const [calDate, setCalDate] = useState(new Date());
+
   if (!showInputModal) return null;
 
-  // 임박 재고 탭에서 '사용/폐기' 등록을 위해 항목을 먼저 선택하는 화면인지 확인
   const isUrgentSelection = statusLocation === "URGENT" && urgentTab !== "STORAGE";
+  
+  // 달력 계산
+  const currYear = calDate.getFullYear();
+  const currMonth = calDate.getMonth();
+  const days = getCalendarDays(currYear, currMonth);
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[700] flex items-center justify-center p-6 backdrop-blur-sm" onClick={() => setShowInputModal(false)}>
@@ -67,7 +75,6 @@ export default function InputModal({
         </h2>
 
         {isUrgentSelection ? (
-          /* 1. 임박 재고 처리(사용/폐기)를 위한 품목 선택 리스트 */
           <div className="space-y-2 mb-6">
             {urgentItems.length > 0 ? (
               urgentItems.map((item) => (
@@ -91,9 +98,7 @@ export default function InputModal({
             )}
           </div>
         ) : (
-          /* 2. 일반 재고 추가 입력 폼 */
           <>
-            {/* 품목 선택 그리드 */}
             <div className="grid grid-cols-4 gap-2 mb-6 max-h-40 overflow-y-auto p-2 border border-[#F5F0E9] rounded-2xl bg-white text-center shadow-inner">
               {(statusLocation === "SET" ? SET_TYPES : YANGGANG_TYPES).map((p) => {
                 const pName = statusLocation === "SET" ? p : `${p} 양갱`;
@@ -109,54 +114,61 @@ export default function InputModal({
               })}
             </div>
 
-            {/* 유통기한 선택 */}
-            <input 
-              type="date" 
-              value={expiryDate} 
-              onChange={(e) => setExpiryDate(e.target.value)} 
-              className="w-full mb-4 p-4 border border-[#F5F0E9] rounded-2xl font-bold text-center bg-white outline-none text-[16px] text-[#3E2723]" 
-            />
+            {/* --- 커스텀 달력 영역 (HTML5 피커 대체) --- */}
+            <div className="bg-white border border-[#F5F0E9] rounded-2xl p-4 mb-4 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <button onClick={() => setCalDate(new Date(currYear, currMonth - 1))} className="text-[#A68966] font-bold p-1">{"<"}</button>
+                <div className="text-[14px] font-black text-[#5D2E2E]">{currYear}. {String(currMonth + 1).padStart(2, '0')}</div>
+                <button onClick={() => setCalDate(new Date(currYear, currMonth + 1))} className="text-[#A68966] font-bold p-1">{">"}</button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {["일","월","화","수","목","금","토"].map(d => (
+                  <div key={d} className="text-[10px] text-gray-400 font-bold pb-2">{d}</div>
+                ))}
+                {days.map((day, idx) => {
+                  if (!day) return <div key={idx} />;
+                  const dStr = `${currYear}-${String(currMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const isSelected = expiryDate === dStr;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setExpiryDate(dStr)}
+                      className={`py-2 text-[12px] font-bold rounded-xl transition-all ${isSelected ? "bg-[#5D2E2E] text-white" : "hover:bg-[#F9F5F0] text-[#3E2723]"}`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="text-center mb-4 text-[13px] font-bold text-[#A68966]">선택 날짜: {expiryDate}</div>
 
-            {/* 세트 재고일 경우 색상 선택 노출 */}
             {statusLocation === "SET" && (
               <div className="flex gap-2 mb-4">
                 {["Red", "Navy", "Pink"].map((color) => (
-                  <button 
-                    key={color} 
-                    onClick={() => setSetMemo(color)} 
-                    className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${setMemo === color ? "bg-[#5D2E2E] text-white" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}
-                  >
+                  <button key={color} onClick={() => setSetMemo(color)} className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${setMemo === color ? "bg-[#5D2E2E] text-white" : "bg-white text-[#A68966] border-[#F5F0E9]"}`}>
                     {color}
                   </button>
                 ))}
               </div>
             )}
 
-            {/* 수량 조절 퀵 버튼 */}
             <div className="flex gap-2 mb-6">
               <button onClick={() => setQuantity(quantity + 10)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966] active:scale-95 shadow-sm">+10</button>
               <button onClick={() => setQuantity(quantity + 40)} className="flex-1 py-3 bg-white border border-[#F5F0E9] rounded-xl text-[11px] font-bold text-[#A68966] active:scale-95 shadow-sm">+40</button>
-              <button onClick={() => setQuantity(0)} className="flex-1 py-3 bg-[#FFF5F5] border border-[#FFE3E3] rounded-xl text-[11px] font-bold text-[#DC3545] active:scale-95">초기화</button>
+              <button onClick={() => setQuantity(0)} className="flex-1 py-3 bg-[#FFF5F5] border border-[#FFE3E3] rounded-xl text-[11px] font-bold text-[#DC3545] active:scale-95">0</button>
             </div>
 
-            {/* 수량 직접 입력 및 증감 */}
             <div className="flex items-center justify-center gap-8 mb-8">
               <button onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E] shadow-sm active:scale-95">-</button>
-              <input 
-                type="number" 
-                value={quantity || ""} 
-                placeholder="0" 
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} 
-                className="w-20 text-center text-4xl font-black bg-transparent outline-none placeholder:text-[#EFE9E1] text-[#3E2723]" 
-              />
+              <input type="number" value={quantity || ""} placeholder="0" onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 text-center text-4xl font-black bg-transparent outline-none text-[#3E2723]" />
               <button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border border-[#F5F0E9] rounded-full font-bold bg-white text-[#5D2E2E] shadow-sm active:scale-95">+</button>
             </div>
 
-            {/* 일괄 입고(Batch) 목록 미리보기 */}
             {isBatchMode && pendingList.length > 0 && (
-              <div className="mb-6 p-3 bg-[#F9F5F0] rounded-2xl border border-[#F5F0E9] max-h-32 overflow-y-auto shadow-inner">
+              <div className="mb-6 p-3 bg-[#F9F5F0] rounded-2xl border border-[#F5F0E9] max-h-32 overflow-y-auto shadow-inner text-[11px] text-[#A68966]">
                 {pendingList.map((item, idx) => (
-                  <div key={idx} className="flex justify-between text-[11px] font-bold mb-1 border-b border-white/50 pb-1 text-[#A68966]">
+                  <div key={idx} className="flex justify-between font-bold mb-1 border-b border-white/50 pb-1">
                     <span>{item.product_name.replace(" 양갱", "")} ({item.expiry_date.slice(5)})</span>
                     <span>{item.quantity}개</span>
                   </div>
@@ -164,7 +176,6 @@ export default function InputModal({
               </div>
             )}
 
-            {/* 하단 액션 버튼 */}
             <div className="flex flex-col gap-2">
               <div className="flex gap-3 text-center">
                 <button onClick={() => setShowInputModal(false)} className="flex-1 py-4 text-[#A68966] font-bold">취소</button>
@@ -172,11 +183,7 @@ export default function InputModal({
                   <button onClick={addToPending} className="flex-1 py-4 bg-white border border-[#5D2E2E] text-[#5D2E2E] rounded-2xl font-bold active:scale-95 shadow-sm">+ 추가</button>
                 )}
               </div>
-              <button 
-                onClick={saveInventory} 
-                disabled={isSaving} 
-                className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-[0.98] ${isSaving ? "bg-[#D1C4B5]" : "bg-[#5D2E2E]"}`}
-              >
+              <button onClick={saveInventory} disabled={isSaving} className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-[0.98] ${isSaving ? "bg-[#D1C4B5]" : "bg-[#5D2E2E]"}`}>
                 {isSaving ? "저장 중..." : "확인"}
               </button>
             </div>
